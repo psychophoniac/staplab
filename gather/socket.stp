@@ -1,0 +1,110 @@
+global printSendRecv=1 //'"$PRINT_SEND_RECV"'
+global printRawData=0 //'"$PRINT_RAW_DATA"'
+global printOpenClose=1 //'"$PRINT_OPEN_CLOSE"'
+
+probe socket.create {
+	if( printOpenClose > 0 && target() == pid() ){
+
+		s_proto = sock_prot_num2str(protocol)
+		s_fam	= sock_fam_num2str(family)
+		s_type 	= sock_type_num2str(type)
+
+		printf("%s type: %s prot_family:%s protocol:%s\n", 
+					name,
+					s_type,
+					s_fam,
+					s_proto
+		)
+	}
+}
+
+probe socket.close {
+	if( printOpenClose > 0 && target() == pid() ){
+
+		s_flags = ((sock_flags_num2str(flags) == "" )? "none" : sock_flags_num2str(flags))
+		s_proto = sock_prot_num2str(protocol)
+		s_fam	= sock_fam_num2str(family)
+		s_type 	= sock_type_num2str(type)
+
+		printf("%s type: %s prot_family:%s protocol:%s flags:%s\n", 
+					name,
+					s_type,
+					s_fam,
+					s_proto,
+					s_flags
+		)
+	}
+}
+
+
+// function used to extract the raw data from a packet send through a socket
+// uses plain c and requires guru-mode in stap
+// needs to extract data depending on the protocol (UDP/TCP), else all we will see is garbage on the terminal
+// (temporary?) just return binary string representation of data.
+function get_data:string (msg) 	%{
+	#include <linux/socket.h>
+
+	struct msghdr *mshr	= (struct msghdr*)STAP_ARG_msg;
+	struct iovec * iov 	= mshr->msg_iov;
+	char* base		= (char*)(iov->iov_base);
+	int len		= iov->iov_len;
+	//int binStrLen = len * 8 + 1;
+	int binStrLen = 2*len + 1;
+	char data[binStrLen];
+	int i,k;
+	char str[15];
+
+	if( binStrLen >= MAXSTRINGLEN){
+		strlcpy(STAP_RETVALUE, "buffer too small (", MAXSTRINGLEN);
+		sprintf(str, "%d)", MAXSTRINGLEN);
+		strlcat(STAP_RETVALUE, str , MAXSTRINGLEN);
+		STAP_RETURN(STAP_RETVALUE);
+	}
+	
+	// binary encoding
+	//for(i = len - 1; i >= 0; i--)
+	//	for(k = 0; k < 8; k++)
+	//		data[i * 8 + k] = (char)((base[i] & ( 128 >> k)) ? 49 : 48);
+
+	// hex encoding
+	for(i = 0; i < len; i++)
+		sprintf(&data[i], "%02x", base[i]);
+
+	data[binStrLen-1] = 0;
+
+	strlcpy(STAP_RETVALUE, data, MAXSTRINGLEN);
+	STAP_RETURN(STAP_RETVALUE);
+%}
+
+probe socket.sendmsg, socket.recvmsg 	//, socket.writev, socket.readv
+					//probe socket.send, socket.receive
+{	
+	if(target() == pid()){
+		rs = ""
+		if(printSendRecv > 0){
+			s_flags 	= ((sock_flags_num2str(flags) == "" )? "none" : sock_flags_num2str(flags))
+			s_proto 	= sock_prot_num2str(protocol)
+			s_fam		= sock_fam_num2str(family)
+			s_type 		= sock_type_num2str(type)
+			s_data_size	= sprintf("%d" , size)
+
+			// this still needs a fix. is not provided in every probe of the socket-tapset
+			// use a temporary string for the moment
+			s_sent_succ	= "?" //$success ? "yes" : "no"
+
+			rs .= "func:" . name 		
+			rs .= " type:" . s_type . " family: ". s_fam . " prot: " . s_proto
+			rs .= " flags: " . s_flags
+			rs .= " data_size: " . s_data_size . " succ:" . s_sent_succ . " "
+		}
+
+		if(printRawData > 0){
+			s_data	= get_data($msg)
+			rs .= "raw_data: " . s_data . "\n"
+		}		
+		
+		if(rs != "")
+			printf("%s\n" , rs)
+	}
+}
+
