@@ -25,9 +25,12 @@ class StapModule():
 		self.stpid	= targetPID			# stapScript target PID
 		self.quiet	= False				# switch to silence this module
 
+	def __repr__(self):
+		return "stapModule %s(%d) at %s" % (self.mname,self.mid,hex(id(self)))
+
 	def enqueueOutput(self):
 		while self.ph.poll() is not None:
-			sleep(1)
+			sleep(0.1)
 		#self.log("enq")
 		for line in iter(self.ph.stdout.readline, b''):
 			self.out(line.rstrip())
@@ -72,6 +75,9 @@ class StapModule():
 			else:
 				#print("[%s][%s|%s]%s" % outData)
 				print "outstream missing"
+	
+	def toggleQuiet(self):
+		self.quiet = not self.quiet
 
 	def start(self):
 		pid = self.dispatchSubprocess()		# async from here on

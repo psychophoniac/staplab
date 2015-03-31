@@ -3,6 +3,7 @@ for folder in ["gather", "process", "view"]:
 	sys.path.append(folder)
 import OutputModule as outmod
 import StapModuleHandler as stmodh
+from GraphModule import GraphModule
 from time import sleep
 #from gi.repository import Gtk
 import gtk
@@ -52,6 +53,7 @@ class fopraMain():
 		self.tidSelWin.connect("delete-event", self.stop)
 		self.mainWin.connect("delete-event", self.stop)
 		self.logWin.connect("delete-event", lambda w, e: w.hide() or True)
+		self.builder.get_object("showGraphWindow").connect("delete-event", self.showGraph,"close")
 		
 		# button wiring is done here rather than in the glade-file		
 		self.builder.get_object("button1").connect("clicked", self.showGraph)
@@ -75,6 +77,9 @@ class fopraMain():
 		self.builder.get_object("treeview3").connect("size-allocate", self.autoscroll, "treeview3")
 		self.builder.get_object("treeview4").connect("size-allocate", self.autoscroll, "treeview4")
 		self.builder.get_object("treeview5").connect("size-allocate", self.autoscroll, "treeview4")
+		
+		#toggle quiet state in module list
+		self.builder.get_object("cellrenderertoggle1").connect("toggled", self.toggleModuleQuietState)
 		
 		if self.tid > 0:
 			self.initGtkMainWindow()
@@ -106,9 +111,27 @@ class fopraMain():
 				except ValueError:
 					self.tid = -1
 					self.tidErrWin.show()
+	
+	def toggleModuleQuietState(self, widget,path,*args):
+		if path is not None:
+			model 	= self.builder.get_object("treeview2").get_model()
+			row 	= model[path]
+			name 	= row[0]
+			show 	= row[1]
+			mid 	= int(row[2])
+			dm 	= self.smh.getModuleDict()
+			module	= dm[mid]
+			module.toggleQuiet()
+			row[1] = not row[1]
 
 	def showGraph(self,sm=None, *args):
-		self.builder.get_object("showGraphWindow").show_all()
+		if "close" in args:
+			self.gm.stop()
+		else:
+			rt = self.builder.get_object("showGraphWindow")
+			self.gm = GraphModule(renderTarget=rt,mID=-1,mName="GraphModule",dataStream=None,FPS=2,logStream=self.lm,outStream=self.lm)
+			self.gm.start()
+			self.builder.get_object("showGraphWindow").show_all()
 	
 	def showLogOutputWindow(self,*args):
 		self.builder.get_object("logOutputWindow").show()
@@ -155,18 +178,18 @@ class fopraMain():
 			#TODO recover old "show in output" state
 			ml = self.smh.getModuleList()
 			#print "ml: ", ml
-			vals = map((lambda m : [m[1].mname]+[True]),ml)
+			vals = map((lambda m : [m[1].mname]+[True]+[m[1].mid]),ml)
 			#vals = ['udp',True]
 			#vals = [["abc", True]]
 			#print "vals: ", vals
-			self.updateListStore(ls=self.builder.get_object("liststore2"),values=vals,clear=False)
+			self.updateListStore(ls=self.builder.get_object("liststore2"),values=vals)
 		self.updateSpinner()
 
 	def updateListStore(self,ls=None,values=[],clear=True,*args):
 		if ls is not None:
 			if clear:
 				ls.clear()
-			print "update, values: ", values
+			#print "update, values: ", values
 			for val in values:
 				try:
 					#ls.append([val])
@@ -238,7 +261,8 @@ class fopraMain():
 		return self.running	
 
 	def log(self,data):
-		self.lm.outLog((outmod.timestamp(),"fopraMain","-1",data))
+		#self.lm.outLog((outmod.timestamp(),"fopraMain","-1",data))
+		self.lm.enqLog((outmod.timestamp(),"fopraMain","-1",data))
 
 	def run(self):
 		try:

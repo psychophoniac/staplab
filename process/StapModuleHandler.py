@@ -42,7 +42,8 @@ class StapModuleHandler:
 	def log(self,message):
 		if self.logging:
 			if self.lm is not None:
-				self.lm.outLog(outmod.makeOutstreamTuple(self,message))
+				#self.lm.outLog(outmod.makeOutstreamTuple(self,message))
+				self.lm.enqLog(outmod.makeOutstreamTuple(self,message))
 			else:
 				print outmod.makeLogStr(outmod.makeOutstreamTuple(self,message))
 

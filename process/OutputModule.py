@@ -28,13 +28,14 @@ Streams = { 'out':0, 'log':1 }
 # queues in python are threadsafe, see https://docs.python.org/2/library/queue.html
 class OutputModule():
 	def __init__(self,mID=-1):
+		self.mid	= mID if mID >= 0 else id(self)
 		self.qn		= Queue()			# normal out queue
 		self.ql		= Queue()			# log out queue
 		self.t 		= thr.Thread(target=self.run)	# 
 		self.t.daemon 	= True				#
 		self.running 	= True				#
 		self.t.start()					#
-		self.mid	= id(self) if mID is -1 else mID
+		
 	
 	def enq(self,(timestamp,moduleName, moduleID, data)):
 		self.qn.put((timestamp,moduleName,moduleID,data))
@@ -98,6 +99,35 @@ class StdoutOutputModule(OutputModule):
 
 	def outLog(self,(timestamp, moduleName, moduleID, data)):
 		print makeLogStr((timestamp, moduleName, moduleID, data))
+
+class StreamOutputModule(OutputModule):
+	def __init(self,mID=-1):
+		OutputModule.__init__(self,mID)
+		#print makeLogStr(makeOutstreamTuple(self,data))
+
+	def out(self):
+		res = []
+		while True:
+			cur = self.deq()
+			if cur is not None:
+				res += cur
+			else:
+				return None
+		return res
+
+	def outLog(self):
+		res = []
+		while True:
+			cur = self.deq()
+			if cur is not None:
+				res += cur
+			else:
+				break
+		return res
+
+	def run(self):
+		while self.running:
+			sleep(1)
 
 # generate a global instance of stdout on import that anyone can grab.
 #gls = StdoutOutputModule()

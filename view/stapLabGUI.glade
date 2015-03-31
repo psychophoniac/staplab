@@ -19,6 +19,8 @@
       <column type="gchararray"/>
       <!-- column-name gboolean1 -->
       <column type="gboolean"/>
+      <!-- column-name gchararray2 -->
+      <column type="gchararray"/>
     </columns>
   </object>
   <object class="GtkWindow" id="mainWindow">
@@ -103,7 +105,9 @@
                             <child>
                               <object class="GtkTreeViewColumn" id="treeviewcolumn2">
                                 <property name="resizable">True</property>
-                                <property name="title" translatable="yes">Dispatched modules:</property>
+                                <property name="title" translatable="yes">mName</property>
+                                <property name="expand">True</property>
+                                <property name="clickable">True</property>
                                 <child>
                                   <object class="GtkCellRendererText" id="cellrenderertext2">
                                     <property name="wrap_mode">word</property>
@@ -117,11 +121,25 @@
                             <child>
                               <object class="GtkTreeViewColumn" id="treeviewcolumn3">
                                 <property name="title" translatable="yes">show</property>
+                                <property name="clickable">True</property>
                                 <child>
                                   <object class="GtkCellRendererToggle" id="cellrenderertoggle1">
-                                    <property name="active">True</property>
                                     <property name="indicator_size">10</property>
                                   </object>
+                                  <attributes>
+                                    <attribute name="active">1</attribute>
+                                  </attributes>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkTreeViewColumn" id="treeviewcolumn7">
+                                <property name="title" translatable="yes">mID</property>
+                                <child>
+                                  <object class="GtkCellRendererText" id="cellrenderertext6"/>
+                                  <attributes>
+                                    <attribute name="text">2</attribute>
+                                  </attributes>
                                 </child>
                               </object>
                             </child>
@@ -804,11 +822,9 @@ If you set -v "all" as an switch to the module, it gets noisy as hell</property>
   </object>
   <object class="GtkWindow" id="showGraphWindow">
     <property name="can_focus">False</property>
+    <property name="default_width">400</property>
     <child>
-      <object class="GtkDrawingArea" id="drawingarea1">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-      </object>
+      <placeholder/>
     </child>
   </object>
 </interface>
