@@ -23,6 +23,7 @@ class StapModule():
 		self.sfile	= stapFile			# stapFile (path)
 		self.sargs	= stapArgs			# stapArgs (list)
 		self.stpid	= targetPID			# stapScript target PID
+		self.quiet	= False				# switch to silence this module
 
 	def enqueueOutput(self):
 		while self.ph.poll() is not None:
@@ -64,12 +65,13 @@ class StapModule():
 				print "logstream missing"
 	
 	def out(self,data):
-		outData = (outmod.timestamp(), self.mname, self.mid, data)
-		if self.om is not None:
-			self.om.enq(outData)
-		else:
-			#print("[%s][%s|%s]%s" % outData)
-			print "outstream missing"
+		if not self.quiet:
+			outData = (outmod.timestamp(), self.mname, self.mid, data)
+			if self.om is not None:
+				self.om.enq(outData)
+			else:
+				#print("[%s][%s|%s]%s" % outData)
+				print "outstream missing"
 
 	def start(self):
 		pid = self.dispatchSubprocess()		# async from here on
