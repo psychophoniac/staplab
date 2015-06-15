@@ -1,0 +1,5 @@
+function timestamp:long() { return gettimeofday_us() }
+
+probe timer.s(1){
+	printf("dummyOut, time:%d\n", timestamp())
+}
