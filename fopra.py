@@ -1,5 +1,7 @@
 import sys
-import os.path
+#import os.path
+import os
+import errno
 for folder in ["gather", "process", "view"]:
 	sys.path.append(folder)
 import argparse
@@ -12,13 +14,14 @@ from threading import Thread
 class stapLab():
 
 	def __init__(self):
-		self.running	= True
-		self.module	= None
-		self.tid	= -1
-		self.moduleArgs = []
-		self.gui	= False
-		self.handle	= None
-		self.q		= Queue()
+		self.running	= True	#
+		self.module	= None	# stapModule to run, defined in self.stapModules
+		self.tid	= -1	# target process ID
+		self.moduleArgs = []	# additional arguments for the stapModule
+		self.gui	= True	# enable or disable gui
+		self.handle	= None	# the process handle for the stapModule
+		self.q		= None	# queue for the output of the stapModule
+		self.t		= None	# Thread to enqueue the output from the stapModule
 		self.stapModules = {
 					'dummy':['gather/dummy.stp'],
 					'udp':['gather/udp.stp'],
@@ -28,9 +31,14 @@ class stapLab():
 					'syscall':['gather/syscall.stp','-Gprint_time_spent=1','-GprintData=1']
 				}
 
+		# create a watchdog-Thread, that stops stapLab if the target pid terminates
+		self.wd		= Thread(target=self.watchdogWorkerMain)
+		self.wd.daemon	= True
+		self.wd.running	= True
+	
 		self.parseArgs()
 
-		# catch Interrupt-Signal
+		# catch interrupt-Signal
 		signal.signal(signal.SIGINT, lambda x,y: self.stop())
 		# catch terminate-Signal
 		signal.signal(signal.SIGTERM, lambda x,y: self.stop())
@@ -51,7 +59,7 @@ class stapLab():
 					help="additional arguments for the module. For a listing use the -i flag and specify the module name as argument")
 		parser.add_argument('-n','--no-gui', action="store_true", help="if set, disable GUI and write module output to stdout")
 		args = vars(parser.parse_args())
-		self.log(args)
+		#self.log(args)
 
 		if(args["list_available_modules"]):
 			# list available modules
@@ -77,6 +85,7 @@ class stapLab():
 			self.tid = args["targetPid"]
 		else:
 			self.log("invalid pid provided: %d" % args["targetPid"])
+			self.stop()
 	
 
 		if( len(args["a"]) > 0):
@@ -111,6 +120,7 @@ class stapLab():
 							universal_newlines=True
 						)
 			self.log("subprocess running, pid %i" % self.handle.pid)
+			self.q		= Queue()
 			self.t 		= Thread(target=self.outputWorkerMain)
 			self.t.running	= False
 			self.t.daemon 	= True
@@ -120,18 +130,32 @@ class stapLab():
 	
 	def outputWorkerMain(self):
 		self.enqOutput()
+
+	def watchdogWorkerMain(self):
+		self.log("watchdog started")
+
+		while self.running and self.processRunning(self.tid):
+			sleep(0.1)
+
+		self.log("watchdog indicates that target pid (%d) has terminated" % self.tid)
+		if self.running:
+			self.stop()
+		self.log("watchdog terminated")
 	
 	def enqOutput(self):
 		#self.log("enq start")
 		while self.handle.poll() is not None:
-			sleep(0.1)
+			sleep(0.01)
 		for line in iter(self.handle.stdout.readline, b''):
 			self.updateData(line.rstrip())
 		self.handle.stdout.close()
 		#self.log("enq end")
 
 	def updateData(self,data=[]):
-		self.log("data: %s" % data)
+		if not self.gui:
+			self.log("data: %s" % data)
+		else:
+			self.log("updated data: %s" % data)
 	
 	def drawGUI(self):
 		#TODO
@@ -142,33 +166,58 @@ class stapLab():
 		self.log("starting output worker thread")
 		self.t.running	= True
 		self.t.start()
+		self.wd.start()
 		self.log("entering mainLoop")
 		while self.running:
 			#self.log("mainLoop")
 			self.drawGUI()
 	
 	def processRunning(self,pid):
-		return os.path.exists("/proc/%d" % pid)
+		#return os.path.exists("/proc/%d" % pid)
+		# see http://stackoverflow.com/questions/568271
+		try:
+		        os.kill(pid, 0)
+		except OSError as err:
+	     		if err.errno == errno.ESRCH:
+        		# ESRCH == No such process
+				return False
+			elif err.errno == errno.EPERM:
+			# EPERM clearly means there's a process to deny access to
+				return True
+		        else:
+				# According to "man 2 kill" possible error values are
+				# (EINVAL, EPERM, ESRCH)
+				raise
+		else:
+			# process is existent
+			return True
 
 	def stop(self):
 		self.log("stop")
 		self.running 	= False
-		self.t.running	= False
-		self.handle.terminate()
-		if(self.processRunning(self.handle.pid)):
-			self.log("stap subprocess is still running, wait one second and check back")
-			c = 0
-			while(self.processRunning(self.handle.pid) and c < 10):
-				sleep(0.1)
-				c += 1
-			self.log("stap subprocess is still running, sending kill signal")
-			self.handle.kill()
-			if not self.processRunning(self.handle.pid):
-				self.log("could not kill process, pid: %d" % self.handle.pid)
+		# stop watchdog
+		if self.wd is not None: 
+			self.wd.running	= False
+		# stop output worker
+		if self.t is not None:
+			self.t.running	= False
+		# stop stapModule
+		if self.handle is not None:
+			self.handle.terminate()
+			if(self.processRunning(self.handle.pid)):
+				self.log("stap subprocess is still running, wait one second and check back")
+				c = 0
+				while(self.processRunning(self.handle.pid) and c < 10):
+					sleep(0.1)
+					c += 1
+				self.log("stap subprocess is still running, sending kill signal")
+				self.handle.kill()
+				if not self.processRunning(self.handle.pid):
+					self.log("could not kill process, pid: %d" % self.handle.pid)
+				else:
+					self.log("process killed")
 			else:
-				self.log("process killed")
-		else:
-			self.log("stap subprocess stopped")
+				self.log("stap subprocess stopped")
 
 		sys.exit(0)
 
