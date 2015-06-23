@@ -10,6 +10,9 @@ import signal
 import subprocess
 from Queue import Queue, Empty
 from threading import Thread
+import numpy as np
+import matplotlib.pyplot as plt
+import pylab as pl
 
 class stapLab():
 
@@ -23,18 +26,52 @@ class stapLab():
 		self.q		= None	# queue for the output of the stapModule
 		self.t		= None	# Thread to enqueue the output from the stapModule
 		self.stapModules = {
+					# moduleName: [stapFile path, grapType, additionalArgs...]
+					# grapType can be bar, line, cake
 					'dummy':['gather/dummy.stp'],
 					'udp':['gather/udp.stp'],
 					'tcp':['gather/tcp.stp'],
 					# the socket module is broken since the last kernel update, i don't know why yet
-					'socket':['gather/socket.stp','-g','-GprintRawData=0','-GprintSendRecv=1','-GprintOpenClose=1'],
+					#'socket':['gather/socket.stp','-g','-GprintRawData=0','-GprintSendRecv=1','-GprintOpenClose=1'],
 					'syscall':['gather/syscall.stp','-Gprint_time_spent=1','-GprintData=1']
+				}
+		
+		def dummyUpd(data):
+			if data is not None:
+				self.data[data.split(" ")[1].split(":")[1]] = 1
+				#self.data.append(int(data.split(" ")[1].split(":")[1]))
+				#self.data2.append(
+			else:
+				self.log("empty data")
+
+		def syscallUpd(data):
+			if data is not None:
+				s = data.split()[1]
+				if self.data.has_key(s):
+					self.data[s] += 1
+				else:
+					self.data[s] = 1
+			
+		self.smDataExtr	= {
+					#'syscall':self.updateSyscallData,
+					'syscall':syscallUpd,
+					'tcp':self.updateTcpData,
+					'udp':self.updateUdpData,
+					#'socket':self.updateSocketData,
+					'dummy':dummyUpd
 				}
 
 		# create a watchdog-Thread, that stops stapLab if the target pid terminates
 		self.wd		= Thread(target=self.watchdogWorkerMain)
 		self.wd.daemon	= True
 		self.wd.running	= True
+		
+		# graph data
+		self.data	= None
+		self.data2	= None
+
+		# draw gui every x seconds
+		self.guiDrawInterval	= 0.1
 	
 		self.parseArgs()
 
@@ -52,6 +89,8 @@ class stapLab():
 					help='module to be dispatched, see -i without argument for a list')
 		parser.add_argument('targetPid', type=int, nargs="?", metavar="tid",default=-1, 
 					help='target Pid, must be in between 0 and the MAX_PID limit (usually residing in /proc/sys/kernel/pid_max)')
+		parser.add_argument('-g', '--gui-update-interval', type=float, nargs="?", metavar="gint",default=0.1, 
+					help='gui update interval in seconds. Takes a float, e.g. 0.1 (default). 0 means update as fast as possible.')
 		parser.add_argument('-i','--info', type=str, metavar="moduleInfo",
 					help="list information about additional arguments for the specified stapModule")
 		parser.add_argument('-l','--list-available-modules', action="store_true", help="list available modules")
@@ -76,6 +115,13 @@ class stapLab():
 			self.gui=False
 		else:
 			self.gui=True
+	
+		if(args["gui_update_interval"] is not None):
+			if(args["gui_update_interval"] >= 0):
+				self.guiDrawInterval = args["gui_update_interval"]
+			else:
+				self.log("invalid gui update value:%d" % args["gui_update_interval"])
+				self.stop()
 
 		if(args["module"] is not None):
 			self.module=args["module"]
@@ -124,12 +170,18 @@ class stapLab():
 			self.t 		= Thread(target=self.outputWorkerMain)
 			self.t.running	= False
 			self.t.daemon 	= True
+			# data update Thread
+			self.dt		= Thread(target=self.updateData)
+			self.dt.daemon	= True
+			self.dt.running	= False
 		else:
 			self.log("invalid module provided: " + str(self.module))
 			sys.exit(-1)
 	
 	def outputWorkerMain(self):
+		self.log("outputWorker started")
 		self.enqOutput()
+		self.log("outputWorker terminated")
 
 	def watchdogWorkerMain(self):
 		self.log("watchdog started")
@@ -147,30 +199,117 @@ class stapLab():
 		while self.handle.poll() is not None:
 			sleep(0.01)
 		for line in iter(self.handle.stdout.readline, b''):
-			self.updateData(line.rstrip())
+			#self.updateData(line.rstrip())	
+			self.q.put(line.rstrip())
 		self.handle.stdout.close()
-		#self.log("enq end")
+		#self.log("enq end")	
 
-	def updateData(self,data=[]):
-		if not self.gui:
-			self.log("data: %s" % data)
-		else:
-			self.log("updated data: %s" % data)
+	def updateSyscallData(self,data=""):
+		pass
+		
+	#self.updateDummyData(self,data=""):
+	#	pass	
+
+	def updateTcpData(self,data=""):
+		pass	
+
+	def updateUdpData(self,data=""):
+		pass	
+
+	def updateData(self):
+		self.log("update data")
+		while self.dt.running:
+			while not self.q.empty():
+				#self.log("updateData(), q=%s" % str(self.q))
+				data = self.q.get()
+				if not self.gui:
+					self.log("data: %s" % data)
+				else:
+					self.smDataExtr[self.module](data)
+					#self.log("updated data")
+			sleep(0.1)
+		self.log("update data ende")
+			
+	
+	def initGraphModule(self):
+		self.log("initializing Graph worker")
+		self.fig = pl.figure()
+		#plt.draw()
+		# TODO:
+		# close this programm when graph window is closed,
+		# aka connect closing-event from gui to self.close
+		#plt.gcf().canvas.mpl_connect('delete-event',self.stop)
+		
+		def onresize(event):
+			width = event.width
+			scale_factor = 100.
+			data_range = width/scale_factor
+			start, end = plt.xlim()
+			new_end = start+data_range
+			plt.xlim((start, new_end))		
+		cid = self.fig.canvas.mpl_connect('resize_event', onresize)
+
+		self.log("show graph Window")
+		plt.ion()
+		plt.show(block=False)
+		self.log("grap worker initialized")		
 	
 	def drawGUI(self):
-		#TODO
-		sleep(1)
+		#self.log("drawGUI()")
+		if self.gui:
+			try:
+				plt.clf()
+				self.fig.canvas.stop_event_loop()
+				if self.data is not None and len(self.data) > 0:
+					#self.log("plotting: %s" % str(self.data))
+					# line graph:
+					#plt.plot(self.data)
+					# bar graph:
+					indices = list(self.data)
+					values	= self.data.values()
+					width	= 0.8
+					ax = pl.subplot(111)
+					#ax.bar(range(len(indices)), map((lambda x: int(x)), indices), width)
+					ax.bar(range(len(indices)), values, width, log=True)
+					ax.set_xticks(np.arange(len(indices)) + width/2)
+					ax.set_xticklabels(indices, rotation=90)
+					self.fig.tight_layout()
+					#print(self.data)
+					#self.fig.show()
+				else:
+					self.log("self.data is None, nothing to draw!")
+					for i in range(1000):
+						y = np.random.random()
+						plt.scatter(i, y)
+				self.fig.canvas.start_event_loop(timeout=1)
+				plt.draw()
+			except:
+				self.log("error in draw function")
+				self.log("data: %s" % str(self.data))
+				raise
+		else:
+			return
 
 	def run(self):
 		self.dispatchStapModule()
-		self.log("starting output worker thread")
-		self.t.running	= True
+		self.t.running		= True
+		self.dt.running		= True
+		if self.data is None:
+			#self.data	= []
+			self.data	= {}
+		if self.data2 is None:
+			self.data2	= []
+		# start async threads
 		self.t.start()
 		self.wd.start()
+		self.dt.start()
+		if self.gui:
+			self.initGraphModule()
 		self.log("entering mainLoop")
 		while self.running:
-			#self.log("mainLoop")
+			#self.updateData()			
 			self.drawGUI()
+			sleep(self.guiDrawInterval)
 	
 	def processRunning(self,pid):
 		#return os.path.exists("/proc/%d" % pid)
@@ -195,12 +334,17 @@ class stapLab():
 	def stop(self):
 		self.log("stop")
 		self.running 	= False
+		# close figure window
+		plt.close()
 		# stop watchdog
 		if self.wd is not None: 
 			self.wd.running	= False
 		# stop output worker
 		if self.t is not None:
 			self.t.running	= False
+		# stop data update Thread
+		if self.dt is not None:
+			self.dt.running = False
 		# stop stapModule
 		if self.handle is not None:
 			self.handle.terminate()
