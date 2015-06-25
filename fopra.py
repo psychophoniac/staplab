@@ -13,6 +13,7 @@ from threading import Thread
 import numpy as np
 import matplotlib.pyplot as plt
 import pylab as pl
+from datetime import datetime
 
 class stapLab():
 
@@ -25,22 +26,23 @@ class stapLab():
 		self.handle	= None	# the process handle for the stapModule
 		self.q		= None	# queue for the output of the stapModule
 		self.t		= None	# Thread to enqueue the output from the stapModule
+		self.dt		= None
 		self.stapModules = {
 					# moduleName: [stapFile path, grapType, additionalArgs...]
 					# grapType can be bar, line, cake
-					'dummy':['gather/dummy.stp'],
+					'dummy':['gather/dummy.stp'],			# dummy skript that just prints the unixtime every sec
 					'udp':['gather/udp.stp'],
-					'tcp':['gather/tcp.stp'],
+					'tcp_sr_stats':['gather/tcp_sr_stats.stp'],	# tcp send /receive stats
+					'tcp_c_tats':['gather/tcp.stp'],		# tcp connection stats
 					# the socket module is broken since the last kernel update, i don't know why yet
-					#'socket':['gather/socket.stp','-g','-GprintRawData=0','-GprintSendRecv=1','-GprintOpenClose=1'],
+					#'socket_verbose':['gather/socket_verbose.stp','-g','-GprintRawData=0','-GprintSendRecv=1','-GprintOpenClose=1'],
+					'socket':['gather/socket.stp','-GexcludeList="sshd avahi-daemon"'],
 					'syscall':['gather/syscall.stp','-Gprint_time_spent=1','-GprintData=1']
-				}
+				}		
 		
 		def dummyUpd(data):
 			if data is not None:
 				self.data[data.split(" ")[1].split(":")[1]] = 1
-				#self.data.append(int(data.split(" ")[1].split(":")[1]))
-				#self.data2.append(
 			else:
 				self.log("empty data")
 
@@ -51,13 +53,61 @@ class stapLab():
 					self.data[s] += 1
 				else:
 					self.data[s] = 1
+			else:
+				self.log("empty data")
+
+		scale	= 1000
+
+		def tcpUpd(data):
+			if data is not None:
+				parts	= data.split()
+				action	= {}
+				# update recv data
+				def updRecv(count=-1):
+					if count >= 0:
+						#self.log("updR:%d" % count)
+						self.data[1] += int( count / scale)
+					
+				# update recv data
+				def updSend(count=-1):
+					if count >= 0:
+						#self.log("updS:%d" % count)
+						self.data[0] += int( count / scale)
+
+				# number of bytes received / sent
+				if self.module == 'tcp_sr_stats':
+					action	= {
+						'tcp.recvmsg':(lambda d: None),
+						'tcp.recvmsg.return':(lambda d: updRecv(int(d[2][5:])) ),
+						'tcp.sendmsg':(lambda d: None),
+						'tcp.sendmsg.return':(lambda d: updSend(int(d[0][11:])) ),
+						'tcp.disconnect':(lambda d: None),
+						'tcp.disconnect.return':(lambda d: None)
+					}
+				# who did we talk to from where
+				elif self.module == 'tcp_c_stats':
+					action	= {
+						'tcp.recvmsg':(lambda d: None),
+						'tcp.recvmsg.return':(lambda d: None),
+						'tcp.sendmsg':(lambda d: None),
+						'tcp.sendmsg.return':(lambda d: None),
+						'tcp.disconnect':(lambda d: None),
+						'tcp.disconnect.return':(lambda d: None)
+					}
+				else:
+					self.log("tcp parse error, no module parser found for: %s" % self.module)
+					self.stop()
+
+				# trigger action according to values we just set
+				#print parts[1:]
+				action[parts[0]](parts[1:])
+			else:	
+				self.log("empty data")
 			
 		self.smDataExtr	= {
-					#'syscall':self.updateSyscallData,
 					'syscall':syscallUpd,
-					'tcp':self.updateTcpData,
-					'udp':self.updateUdpData,
-					#'socket':self.updateSocketData,
+					'tcp_sr_stats':tcpUpd,
+					'udp':None,
 					'dummy':dummyUpd
 				}
 
@@ -68,12 +118,59 @@ class stapLab():
 		
 		# graph data
 		self.data	= None
-		self.data2	= None
+		self.dataHist	= None
+		self.dhPointer	= -1
+		self.timer	= None
+		self.lastUpd	= -1
 
 		# draw gui every x seconds
 		self.guiDrawInterval	= 0.1
 	
 		self.parseArgs()
+
+		# what graph to draw for every model
+		# possible values could be line,bar,graph,cake...?
+		self.smGraphType	= {
+					'dummy':'line',	
+					'udp':'?',
+					'tcp_sr_stats':'line',
+					'tcp_c_tats':'bar',
+					#'socket_verbose':'?',
+					'socket':'?',
+					'syscall':'bar'
+				}[self.module]
+		
+		# set correct dataType for self.data
+		self.data	= {
+					'dummy':[],	
+					'udp':None,	#TODO
+					'tcp_sr_stats':[0,0],	# data[0] = send , data[1] = recieve,
+					'tcp_c_tats':None,	#TODO
+					#'socket_verbose':'?',
+					'socket':None,	#TODO
+					'syscall':{}
+				}[self.module]
+	
+		self.dataHist	= {
+					'dummy':None,	#TODO
+					'udp':None,#TODO
+					'tcp_sr_stats':[[0,0]]*60, # we will keep track of the last 60 values
+					'tcp_c_tats':None,#TODO
+					#'socket_verbose':'?',
+					'socket':None,
+					'syscall':{}
+				}[self.module]
+	
+		# set timer if we need one. Update Interval for self.dataHist in seconds.
+		self.timer	= {
+					'dummy':None,	
+					'udp':None,#TODO
+					'tcp_sr_stats':1,
+					'tcp_c_tats':None,
+					#'socket_verbose':'?',
+					'socket':None,
+					'syscall':None
+				}[self.module]
 
 		# catch interrupt-Signal
 		signal.signal(signal.SIGINT, lambda x,y: self.stop())
@@ -195,39 +292,28 @@ class stapLab():
 		self.log("watchdog terminated")
 	
 	def enqOutput(self):
-		#self.log("enq start")
 		while self.handle.poll() is not None:
 			sleep(0.01)
 		for line in iter(self.handle.stdout.readline, b''):
-			#self.updateData(line.rstrip())	
 			self.q.put(line.rstrip())
 		self.handle.stdout.close()
-		#self.log("enq end")	
-
-	def updateSyscallData(self,data=""):
-		pass
 		
-	#self.updateDummyData(self,data=""):
-	#	pass	
-
-	def updateTcpData(self,data=""):
-		pass	
-
-	def updateUdpData(self,data=""):
-		pass	
+	def updateDataHistory(self):
+		delta = (datetime.now() - self.lastUpd)
+		if delta.total_seconds() > self.timer:
+			self.dataHist	= self.dataHist[1:] + [self.data]
+			self.data	= [0,0]
+			self.lastUpd	= datetime.now()
 
 	def updateData(self):
 		self.log("update data")
 		while self.dt.running:
 			while not self.q.empty():
-				#self.log("updateData(), q=%s" % str(self.q))
 				data = self.q.get()
-				if not self.gui:
-					self.log("data: %s" % data)
-				else:
-					self.smDataExtr[self.module](data)
-					#self.log("updated data")
+				self.smDataExtr[self.module](data)
 			sleep(0.1)
+			if self.timer is not None:
+				self.updateDataHistory()
 		self.log("update data ende")
 			
 	
@@ -242,7 +328,7 @@ class stapLab():
 		
 		def onresize(event):
 			width = event.width
-			scale_factor = 100.
+			scale_factor = 100.0
 			data_range = width/scale_factor
 			start, end = plt.xlim()
 			new_end = start+data_range
@@ -255,27 +341,41 @@ class stapLab():
 		self.log("grap worker initialized")		
 	
 	def drawGUI(self):
-		#self.log("drawGUI()")
 		if self.gui:
 			try:
 				plt.clf()
 				self.fig.canvas.stop_event_loop()
 				if self.data is not None and len(self.data) > 0:
 					#self.log("plotting: %s" % str(self.data))
-					# line graph:
-					#plt.plot(self.data)
-					# bar graph:
-					indices = list(self.data)
-					values	= self.data.values()
-					width	= 0.8
-					ax = pl.subplot(111)
-					#ax.bar(range(len(indices)), map((lambda x: int(x)), indices), width)
-					ax.bar(range(len(indices)), values, width, log=True)
-					ax.set_xticks(np.arange(len(indices)) + width/2)
-					ax.set_xticklabels(indices, rotation=90)
-					self.fig.tight_layout()
-					#print(self.data)
-					#self.fig.show()
+					if self.smGraphType is 'line':
+						histLen	= len(self.dataHist)
+						if self.module == 'tcp_sr_stats':
+							indices	= ['send','received']
+							values	= [map(lambda x:x[0], self.dataHist), map(lambda x: x[1], self.dataHist)]
+						timeRange	= range(0,histLen)
+						plt.plot(timeRange,values[0])
+						plt.plot(timeRange,values[1])
+						plt.title("sent / received tcp traffic")
+						plt.grid(True)
+						plt.xlabel("time")
+						plt.ylabel("traffic in kilobytes")
+						plt.legend(indices, loc='upper left')
+					elif self.smGraphType is 'bar':
+						# convert data to indices and values:
+						if self.module == 'syscall':
+							indices = list(self.data)
+							values	= self.data.values()
+						width	= 0.8
+						ax = pl.subplot(111)
+						#ax.bar(range(len(indices)), map((lambda x: int(x)), indices), width)
+						ax.bar(range(len(indices)), values, width, log=True)
+						ax.set_xticks(np.arange(len(indices)) + width/2)
+						ax.set_xticklabels(indices, rotation=90)
+						self.fig.tight_layout()
+					elif self.smGraphType is 'graph':
+						pass
+					elif self.smGraphType is 'cake':
+						pass
 				else:
 					self.log("self.data is None, nothing to draw!")
 					for i in range(1000):
@@ -288,17 +388,15 @@ class stapLab():
 				self.log("data: %s" % str(self.data))
 				raise
 		else:
-			return
+			self.log("data: %s" % str(self.data))
 
 	def run(self):
 		self.dispatchStapModule()
 		self.t.running		= True
 		self.dt.running		= True
-		if self.data is None:
-			#self.data	= []
-			self.data	= {}
-		if self.data2 is None:
-			self.data2	= []
+		if self.timer is not None:
+			self.lastUpd	= datetime.now()
+			self.dhPointer	= 0
 		# start async threads
 		self.t.start()
 		self.wd.start()
@@ -312,7 +410,7 @@ class stapLab():
 			sleep(self.guiDrawInterval)
 	
 	def processRunning(self,pid):
-		#return os.path.exists("/proc/%d" % pid)
+		# check if process is alive by sending signal 0
 		# see http://stackoverflow.com/questions/568271
 		try:
 		        os.kill(pid, 0)

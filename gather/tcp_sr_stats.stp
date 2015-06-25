@@ -1,0 +1,36 @@
+function isTarget(tid){
+	return pid() == target()
+}
+
+//args: size
+probe tcp.sendmsg.return {
+	if( isTarget(pid()) ){
+		printf("%s.return bytes_sent:%d\n",
+			name,
+			size
+		)
+	}
+}
+
+/**
+sport TCP source port 
+name Name of this probe 
+family IP address family 
+dport TCP destination port 
+saddr A string representing the source IP address 
+size Number of bytes received or error code if an error occurred. 
+daddr A string representing the destination IP address sport
+**/
+probe tcp.recvmsg.return {
+	if( isTarget(pid()) ){
+		printf("%s.return source:%s:%d destination:%s:%d size:%d family:%s\n",
+			name,
+			saddr,
+			sport,
+			daddr,
+			dport,
+			size,
+			sock_fam_num2str(family)
+		)
+	}
+}
