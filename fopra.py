@@ -143,21 +143,21 @@ class stapLab():
 		# set correct dataType for self.data
 		self.data	= {
 					'dummy':[],	
-					'udp':None,	#TODO
+					'udp':None,		#TODO, should be the same one as tcp
 					'tcp_sr_stats':[0,0],	# data[0] = send , data[1] = recieve,
 					'tcp_c_tats':None,	#TODO
 					#'socket_verbose':'?',
-					'socket':None,	#TODO
+					'socket':None,		#TODO
 					'syscall':{}
 				}[self.module]
 	
 		self.dataHist	= {
-					'dummy':None,	#TODO
-					'udp':None,#TODO
-					'tcp_sr_stats':[[0,0]]*60, # we will keep track of the last 60 values
+					'dummy':None,	
+					'udp':None,			#TODO, should be the same one as tcp
+					'tcp_sr_stats':[[0,0]]*60, 	# we will keep track of the last 60 values
 					'tcp_c_tats':None,#TODO
 					#'socket_verbose':'?',
-					'socket':None,
+					'socket':None,			#TODO
 					'syscall':{}
 				}[self.module]
 	
@@ -166,9 +166,9 @@ class stapLab():
 					'dummy':None,	
 					'udp':None,#TODO
 					'tcp_sr_stats':1,
-					'tcp_c_tats':None,
+					'tcp_c_tats':None,		#TODO, should be the saaction[parts[0]](parts[1:])me one as tcp_sr_tats
 					#'socket_verbose':'?',
-					'socket':None,
+					'socket':None,			#TODO
 					'syscall':None
 				}[self.module]
 
@@ -281,7 +281,7 @@ class stapLab():
 		self.log("outputWorker terminated")
 
 	def watchdogWorkerMain(self):
-		self.log("watchdog started")
+		self.log("watchdog started")dp':None,
 
 		while self.running and self.processRunning(self.tid):
 			sleep(0.1)
@@ -367,7 +367,6 @@ class stapLab():
 							values	= self.data.values()
 						width	= 0.8
 						ax = pl.subplot(111)
-						#ax.bar(range(len(indices)), map((lambda x: int(x)), indices), width)
 						ax.bar(range(len(indices)), values, width, log=True)
 						ax.set_xticks(np.arange(len(indices)) + width/2)
 						ax.set_xticklabels(indices, rotation=90)
@@ -378,9 +377,9 @@ class stapLab():
 						pass
 				else:
 					self.log("self.data is None, nothing to draw!")
-					for i in range(1000):
-						y = np.random.random()
-						plt.scatter(i, y)
+					#for i in range(1000):
+					#	y = np.random.random()
+					#	plt.scatter(i, y)
 				self.fig.canvas.start_event_loop(timeout=1)
 				plt.draw()
 			except:
@@ -404,8 +403,7 @@ class stapLab():
 		if self.gui:
 			self.initGraphModule()
 		self.log("entering mainLoop")
-		while self.running:
-			#self.updateData()			
+		while self.running:			
 			self.drawGUI()
 			sleep(self.guiDrawInterval)
 	
