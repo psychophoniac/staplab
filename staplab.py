@@ -2,46 +2,53 @@ import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
 from threading import Thread
-from Dispatcher import Dispatcher
+from dispatcher import Dispatcher
+import argparse
+from time import sleep
 
-class staplab():
+class stapLab():
 	def __init__(self):
-		self.t		= Thread(target=self.run)
-		self.t.daemon	= True
-		self.t.running	= True
-		self.running	= True
-		
-		self.dispatcher	= Dispatcher()
-		self.options	= self.parseargs()
-		self.dispatcher.dispatchAll(self.options['modules'])
-		
-		self.t.run()
+		self.dispatcher		= Dispatcher()
+		self.options		= self.parseargs()
+		self.run()
 		
 	def log(self,logStr):
 		print logStr
 
 	def parseargs(self):
-		options		= {}
 		# parse args
+		#TODO:
+		# subargument structure so we can set individual options to each module, e.g.:
+		# stapLab tid moduleA optionA1 optionB1 moduleB optionA2 optionB2
+		# stapLab [-f] tid [module [option]]
+		parser = argparse.ArgumentParser(description='staplab - systemtap module dispatcher and data visualizer')
+		parser.add_argument('target-pid', type=int, metavar="target_pid",
+					help='target process ID. Must be greater than zero.')
+		parser.add_argument('modules', type=str, nargs="+", metavar="module",default=['dummy'], 
+					help='module to be dispatched')
+		parser.add_argument('-f','--follow-children', action='store_true',
+					help='if a process forks, include children to the tapset')
 
-		# parse Modules to be dispatched
-		options['modules']	= []	# modules to be dispatched
-		pass
+		args = vars(parser.parse_args())
+		print args
+		return args
 
 	def run(self):
+		self.dispatcher.dispatchStapLabModuleAll(modules=self.options['modules'], target=self.options['target-pid'])		
 		self.log("entering stapLab mainLoop")
-		while self.running:
-			pass
-		self.log("entering stapLab mainLoop")
+		while True:
+			try:
+				# we do this so we can catch KeyboardInterrupts better
+				for c in range(0,100):
+					sleep(0.01)
+			except KeyboardInterrupt:
+				self.stop()
+		self.log("leaving stapLab mainLoop")
 
 	def stop(self):
 		self.log("stapLab.stop()")
-		self.running	= False
-		self.t.running	= False
-		
-
+		self.dispatcher.stop()
+		sys.exit(0)
 
 if __name__ == "__main__":
-	stapLab().run()
-
-	sys.exit(0)
+	stapLab()

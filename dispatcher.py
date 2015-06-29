@@ -75,14 +75,14 @@ class Dispatcher():
 	def log(self,logStr):
 		print logStr
 
-	def dispatchStapLabModule(self,module,target=-1):
+	def dispatchStapLabModule(self,module,target):
 		self.log("dispatching module %s" % module)
 		workdir		= os.path.dirname(os.path.realpath(__file__))
 		filename	= (workdir + "/" + self.stapLabModulesDir + "/" + module + ".py")
 
 		if os.path.exists(filename):
 			pass
-			#self.log("found: %s" % filename)
+			self.log("found: %s" % filename)
 		else:
 			self.log("not found: %s" % filename)
 			return None
@@ -101,16 +101,17 @@ class Dispatcher():
 			self.stapLabModules[stapLabModuleInstance.id]	= stapLabModuleInstance
 			#self.log("handling requirements for %s successfull!" % stapLabModuleInstance)
 		else:
+			return None
 			self.log("instanciating module %s failed!" % module)
 
-	def dispatchStapModule(self,name,args=[],target=-1):
+	def dispatchStapModule(self,name,target,args=[]):
 		self.log("dispatching stapModule %s" % name)	
 		workdir		= os.path.dirname(os.path.realpath(__file__))
 		filename	= (workdir + "/" + self.stapModulesDir + "/" + name + ".stp")
 		
 		if os.path.exists(filename):
 			pass
-			#self.log("found: %s" % filename)
+			self.log("found: %s" % filename)
 		else:
 			self.log("not found: %s" % filename)
 			return None
@@ -129,9 +130,9 @@ class Dispatcher():
 			return None
 		
 
-	def dispatchStapLabModuleAll(self,modules):
+	def dispatchStapLabModuleAll(self,modules,target):
 		for module in modules:
-			self.dispatchStapLabModule(module)
+			self.dispatchStapLabModule(module,target)
 
 	def run(self):
 		while True:

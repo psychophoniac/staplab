@@ -34,7 +34,7 @@ class outputHandler():
 				if stapLabModuleInstance not in self.receivers:
 					self.receivers	+= [stapLabModuleInstance]
 					stapLabModuleInstance.queue	= self.queue
-					#self.log("registered %s to %s" % (str(stapLabModuleInstance), self.name))
+					self.log("registered %s to %s" % (str(stapLabModuleInstance), self.name))
 				else:
 					self.log("%s already in receivers of Stream %s" % (stapModuleInstance.name, self))
 
@@ -79,7 +79,6 @@ class outputHandler():
 		#self.log("registering %s" % stapModuleInstance.name)
 		if not self.streams.has_key(stapModuleInstance.id):
 			self.streams[stapModuleInstance.id]	= self.Stream(stapModuleInstance)
-			#stapModuleInstance.queue		= self.streams[stapModuleInstance.id].queue
 			return self.streams[stapModuleInstance.id]
 		else:
 			self.log("stream for %s with id %d already present!" % (stapModuleInstance.name, stapModuleInstance.id))
