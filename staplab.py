@@ -1,3 +1,4 @@
+#from __future__ import print_function
 import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
@@ -5,15 +6,20 @@ from threading import Thread
 from dispatcher import Dispatcher
 import argparse
 from time import sleep
+import matplotlib.pyplot as plt
+import pylab as pl
 
 class stapLab():
-	def __init__(self):
-		self.dispatcher		= Dispatcher()
+	def __init__(self,logStream=print):
+		self.log		= logStream
+		self.dispatcher		= Dispatcher(references={'plt':plt,'pl':pl},logStream=logStream)
 		self.options		= self.parseargs()
-		self.run()
+		#print(self.log)
+		self.start()
 		
-	def log(self,logStr):
-		print logStr
+	#def log(self,logStr):
+		#print logStr
+	#	self.logStream(logStr)
 
 	def parseargs(self):
 		# parse args
@@ -30,19 +36,28 @@ class stapLab():
 					help='if a process forks, include children to the tapset')
 
 		args = vars(parser.parse_args())
-		print args
+		self.log(args)
 		return args
 
-	def run(self):
-		self.dispatcher.dispatchStapLabModuleAll(modules=self.options['modules'], target=self.options['target-pid'])		
+	def start(self):
+		self.dispatcher.dispatchStapLabModuleAll(modules=self.options['modules'], target=self.options['target-pid'])
+		#plt.show(block=False)
 		self.log("entering stapLab mainLoop")
-		while True:
+		
+		# wait for dispatcher to launch at least one module
+		while self.dispatcher.stapLabModules == 0:
+			sleep(1)
+		# now run until we have no modules left to process
+		while len(self.dispatcher.stapLabModules) > 0:
 			try:
 				# we do this so we can catch KeyboardInterrupts better
-				for c in range(0,100):
-					sleep(0.01)
+				#plt.draw()
+				sleep(1.0)
 			except KeyboardInterrupt:
 				self.stop()
+			except:
+				self.log("error in stapLab mainLoop")
+				raise
 		self.log("leaving stapLab mainLoop")
 
 	def stop(self):

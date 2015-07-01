@@ -11,8 +11,9 @@ from time import sleep
 class Dispatcher():
 
 	class stapModule():
-		def __init__(self,name,script,target,args,queue):	# TODO: follow children
+		def __init__(self,name,script,target,args,queue,logStream=print):	# TODO: follow children
 			self.id			= id(self)
+			self.log		= logStream
 			self.name		= name
 			self.queue		= queue
 			self.handle		= None
@@ -24,8 +25,8 @@ class Dispatcher():
 			self.thread.running	= True
 			self.thread.start()
 	
-		def log(self,logStr):
-			print logStr
+		#def log(self,logStr):
+		#	print logStr
 
 		def __str__(self):
 			return "<stapModule %s(id:%d), queue=%s, handle=%s>" % (self.name,self.id,str(self.queue),str(self.handle))
@@ -43,14 +44,14 @@ class Dispatcher():
 			#self.log("outputWorker for stapModule %s stopped" % self.name)
 
 		def run(self):
-			cmd 	= [
-					'stap', 				# stap bin
-					'-s 16', 				# max kernel buffer for stap <-> user com
-					'-DMAXSTRINGLEN=16384',			# max String length
-					self.script					# stap script for module
-				]
-			cmd 	+= self.args
-			cmd 	+= ['-x', str(self.target)]				# stap target PID
+			cmd 			= [
+							'stap', 				# stap bin
+							'-s 16', 				# max kernel buffer for stap <-> user com
+							'-DMAXSTRINGLEN=16384',			# max String length
+							self.script					# stap script for module
+						]
+			cmd 			+= self.args
+			cmd 			+= ['-x', str(self.target)]				# stap target PID
 			#self.log("dispatch command: %s" % cmd)
 			self.handle		 = subprocess.Popen(
 							cmd,
@@ -65,15 +66,18 @@ class Dispatcher():
 			self.handle.terminate()	#TODO check if really terminated
 			self.thread.running	= False
 	
-	def __init__(self,stapLabModulesDir="stapLabModules",stapModulesDir="gather"):
+	def __init__(self,stapLabModulesDir="stapLabModules",stapModulesDir="gather",references=[],logStream=print):
+		self.log		= logStream
 		self.stapLabModulesDir	= stapLabModulesDir
 		self.stapModulesDir	= stapModulesDir
-		self.stapLabModules	= {}	# {stapLabModule.id:stapLabModule}
-		self.stapModules	= {}	# {stapModule.id:stapModule}
+		self.stapLabModules	= {}			# {stapLabModule.id:stapLabModule}
+		self.stapModules	= {}			# {stapModule.id:stapModule}
+		self.references		= references		# {'referenceName':Object}
 		self.outputHandler	= outputHandler()
-	
-	def log(self,logStr):
-		print logStr
+		self.thread		= Thread(target=self.run)
+		self.thread.daemon	= True
+		self.thread.running	= True
+		self.thread.start()
 
 	def dispatchStapLabModule(self,module,target):
 		self.log("dispatching module %s" % module)
@@ -88,18 +92,38 @@ class Dispatcher():
 			return None
 		
 		# create instance of the module by importing the class and creating an instance
-		pymod			= __import__(module)
-		stapLabModuleInstance	= getattr(pymod, module)(name=module,queue=None)
+		pymod				= __import__(module)
+		stapLabModuleInstance		= None
+		try:
+			stapLabModuleInstance	= getattr(pymod, module)(name=module,queue=None)
+		except AttributeError:
+			#TODO implement cli-switch to exit if failed
+			self.log("module %s not found, no such module" % module)
+			raise
 		if stapLabModuleInstance is not None:
 			#self.log("instance of module %s(%s) created. Handle requirements." % (module,stapLabModuleInstance))
-			requirements	= stapLabModuleInstance.getRequirements()		# load lists of stapModules we need to dispatch
+
+			requirements	= stapLabModuleInstance.stapRequirements	# load dict of stapModules we need to dispatch
+			refRequirements	= stapLabModuleInstance.refRequirements		# load list of references this module needs
+			
+			if len(refRequirements) > 0:
+				refDict		= {}
+				for refReq in refRequirements:
+					try:
+						refDict[refReq]	= self.references[refReq]
+					except KeyError:
+						self.log("cannot privide reference Requirement: %s" % refReq)
+				stapLabModuleInstance.setReferences(refDict)
+
 			#self.log("module %s requirements: %s" % (module,requirements))
 			for requirement in requirements:
 				args		= requirements[requirement]
 				stapModule	= self.dispatchStapModule(name=requirement,args=args,target=target)
 				self.outputHandler.registerStapLabModule(stapLabModuleInstance,stapModule)
+			
 			self.stapLabModules[stapLabModuleInstance.id]	= stapLabModuleInstance
 			#self.log("handling requirements for %s successfull!" % stapLabModuleInstance)
+			return stapLabModuleInstance
 		else:
 			return None
 			self.log("instanciating module %s failed!" % module)
@@ -132,11 +156,27 @@ class Dispatcher():
 
 	def dispatchStapLabModuleAll(self,modules,target):
 		for module in modules:
-			self.dispatchStapLabModule(module,target)
+			stapLabModuleInstance		= self.dispatchStapLabModule(module,target)
+			#self.stapLabModules[stapLabModuleInstance.id]	= stapLabModuleInstance
+			#self.log("disptached: %s, mods: %s" % (str(stapLabModuleInstance), self.stapLabModules))
 
 	def run(self):
-		while True:
+		# wait for at least one module to be running
+		self.log("dispatcher waiting for waiting for at least one module to run")
+		while len(self.stapLabModules) == 0:
 			sleep(1)
+		self.log("dispatcher entering mainLoop")
+		# now run until we have no more open modules.
+		while self.thread.running and len(self.stapLabModules) > 0:
+			modulesRunning			= {}
+			for stapLabModuleID in self.stapLabModules:
+				stapLabModule		= self.stapLabModules[stapLabModuleID]
+				if stapLabModule.thread.running:
+					modulesRunning[stapLabModuleID]		= self.stapLabModules[stapLabModule.id]
+			self.stapLabModules		= modulesRunning
+			sleep(1)
+		self.log("dispatcher has no open modules left, leaving mainLoop")
+		self.stop()
 
 	def stop(self):
 		for slm in self.stapLabModules:
@@ -149,6 +189,7 @@ class Dispatcher():
 				self.stapModules[sm].stop()
 			except OSError:
 				pass
+		self.thread.running	= False	
 
 if __name__ == "__main__":
 	try:

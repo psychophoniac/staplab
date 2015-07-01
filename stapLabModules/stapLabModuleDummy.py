@@ -7,18 +7,20 @@ from time import sleep
 
 #this is the base module for the stapLab Modules
 class stapLabModuleDummy():
-	def __init__(self,name,queue):
+	def __init__(self,name,queue,logStream=print):
 		self.id			= id(self)
+		self.log		= logStream
 		self.name		= name
 		self.queue		= queue
-		self.requirements	= {"dummy":[]}	# {stapModuleName:[Args]}
+		self.stapRequirements	= {"dummy":[]}	# {stapModuleName:[Args]}
+		self.refRequirements	= []
 		self.thread		= Thread(target=self.run)
 		self.thread.daemon	= True
 		self.thread.running	= True
 		self.thread.start()
 
 	def __str__(self):
-		return "<%s(id:%d), queue=%s,req=%s>" % (self.name,self.id,str(self.queue),str(self.requirements))
+		return "<%s(id:%d), queue=%s,req= %s %s>" % (self.name,self.id,str(self.queue),str(self.stapRequirements),str(self.refRequirements))
 
 	def log(self,logStr):
 		print logStr
@@ -26,9 +28,6 @@ class stapLabModuleDummy():
 	def enqData(self,data):
 		if self.queue is not None:
 			self.queue.put(data)
-
-	def getRequirements(self):
-		return self.requirements
 
 	def run(self):
 		self.log("module %s entering mainLoop" % self)

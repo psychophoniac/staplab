@@ -2,7 +2,7 @@ import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
 from stapLabModule import stapLabModule
-from Queue import Queue
+from queue import Queue
 from threading import Thread
 from time import sleep
 
@@ -10,8 +10,9 @@ class outputHandler():
 	
 	class Stream():
 		# TODO use Threads for output distribution
-		def __init__(self,stapModuleInstance,interval=0.1,withdraw=False):
+		def __init__(self,stapModuleInstance,interval=0.1,withdraw=False,logStream=print):
 			self.id				= id(self)
+			self.log			= logStream
 			self.name			= stapModuleInstance.name
 			self.queue			= Queue()
 			self.receivers			= []
@@ -23,8 +24,8 @@ class outputHandler():
 			self.thread.start()
 			stapModuleInstance.queue	= self.queue
 
-		def log(self,logStr):
-			print logStr
+		#def log(self,logStr):
+		#	print logStr
 		
 		def __str__(self):
 			return "<Stream,name=%s,queue=%s,receivers=%s>" % (self.name, self.queue, self.receivers)
@@ -38,12 +39,13 @@ class outputHandler():
 				else:
 					self.log("%s already in receivers of Stream %s" % (stapModuleInstance.name, self))
 
-		def unregister(self,stapModuleInstance):
-			if stapModuleInstance is not None:
+		def unregister(self,stapLabModuleInstance):
+			if stapLabModuleInstance is not None:
 				try:
-					receivers.remove(stapModuleInstance)
+					self.receivers.remove(stapLabModuleInstance)
+					self.log("unregistered %s from %s" % (str(stapLabModuleInstance), self.name))
 				except ValueError:
-					self.log("cannot unregister module %s to stream %s" %(stapModuleInstance,self))
+					self.log("cannot unregister module %s to stream %s" %(stapLabModuleInstance,self))
 
 		def emtpyQueue(self):
 			with self.queue.mutex:
@@ -61,23 +63,29 @@ class outputHandler():
 					else:
 						if self.withdraw:
 							self.emptyQueue()
+
+				for receiver in self.receivers:
+					if not receiver.thread.running:
+						self.unregister(receiver)
+
 				sleep(self.interval)
 			#self.log("%s leaving mainLoop" % self)
 
 		def stop(self):
 			self.thread.running	= False
 
-	def __init__(self):
+	def __init__(self,logStream=print):
+		self.log		= logStream
 		self.streams		= {}	# {stapModule.id:<Stream>}
 
-	def log(self,logStr):
-		print logStr
+	#def log(self,logStr):
+	#	print logStr
 
 	# register a systemtap-skript for output
 	# returns the Queue
 	def registerStapModule(self,stapModuleInstance):
 		#self.log("registering %s" % stapModuleInstance.name)
-		if not self.streams.has_key(stapModuleInstance.id):
+		if not stapModuleInstance.id in self.streams:
 			self.streams[stapModuleInstance.id]	= self.Stream(stapModuleInstance)
 			return self.streams[stapModuleInstance.id]
 		else:
@@ -87,7 +95,7 @@ class outputHandler():
 	# register a stapLab-module for receiving the output of a systemtap-script
 	def registerStapLabModule(self,stapLabModule,stapModuleInstance):
 		try:
-			if stapModuleInstance is not None and self.streams.has_key(stapModuleInstance.id):
+			if stapModuleInstance is not None and stapModuleInstance.id in self.streams:
 				#self.log("registering stapLabModule %s to stapModule %s" % (stapLabModule,stapModuleInstance.name))
 				self.streams[stapModuleInstance.id].register(stapLabModule)
 			else:
