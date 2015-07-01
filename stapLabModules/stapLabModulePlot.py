@@ -24,19 +24,16 @@ class stapLabModulePlot():
 		self.refRequirements	= [	# [
 						# 	"reference"			<-- internal Objects that need to be handed to this Module
 						# ]
-						'plt'		# plt is the plot instance that we get our figure Object from
+				#		'plt'		# plt is the plot instance that we get our figure Object from
 					]
 		self.thread		= Thread(target=self.run)
 		self.thread.daemon	= True
 		self.thread.running	= True
-		self.guiInitialized	= False
+#		self.guiInitialized	= False
 		self.thread.start()
 
 	def __str__(self):
 		return "<%s(id:%d), queue=%s,req= %s %s>" % (self.name,self.id,str(self.queue),str(self.stapRequirements),str(self.refRequirements))
-
-	#def log(self,logStr):
-	#	print logStr
 
 	def setReferences(self,refDict):
 		self.plt	= refDict['plt']
@@ -52,50 +49,24 @@ class stapLabModulePlot():
 		return self.refRequirements
 
 	def initGUI(self):
-		self.fig 	= pl.figure()
-		def onresize(event):
-			self.log("onResize")
-			width 		= event.width
-			scale_factor 	= 100.0
-			data_range 	= width/scale_factor
-			start, end 	= self.plt.xlim()
-			new_end 	= start+data_range
-			self.plt.xlim((start, new_end))
+		self.log("initGUI()")
 
-		def onClose(event):
-			self.log("onClose")
-			self.stop()
+	# this function is to be overridden by derived classes that plot stuff. The drawing logic is to be inserted here.
+	def plot(self):
+		self.log("plot")
 
-		cid 		= self.fig.canvas.mpl_connect('resize_event', onresize)
-		#TODO connect closing event to self.stop()
-		cid2		= self.fig.canvas.mpl_connect('close_event', onClose)
-
-		self.log("show graph Window")
-		#self.plt.ion()
-		self.plt.show(block=False)
-		self.log("grap worker initialized")
-		self.guiInitialized	= True
+	# this function is to be overridden by derived classes and is set to contain the data handling logic.
+	def processData(self,data):
+		self.log("processData")
 
 	def drawGUI(self):
-		if not self.guiInitialized and hasattr(self,'plt'):
-			self.initGUI()
-	
-		try:
-			while self.windowThread.running:
-				self.fig.clf()
-				a		= range(0,100)
-				b		= random.sample(a,len(a))
-				self.fig.canvas.stop_event_loop()
-				# plot stuff
-				self.plt.plot(a,b)
-				self.fig.canvas.start_event_loop(timeout=1)
-				self.plt.draw()
-				sleep(1)
-		except:
-			self.log("drawGUI() error")
-			if self.thread.running:
-				self.stop()
-				#raise
+		# wait until all refRequirements are passed to this module
+		while False in list(map((lambda x: hasattr(self,x)), self.refRequirements)):
+			sleep(0.1)
+		self.initGUI()
+		while self.windowThread.running:
+			self.plot()
+			sleep(1)
 
 	def run(self):
 		self.log("module %s entering mainLoop" % self)
@@ -107,13 +78,19 @@ class stapLabModulePlot():
 			if self.queue is not None:
 				while not self.queue.empty():
 					data	= self.queue.get()
-					self.log("%s|%s" % (self.name,data))
+					self.processData(data)
 					#self.drawGUI()
 			sleep(0.1)
 		self.log("module %s leaving mainLoop" % self)
 
+	# this function is to be overridden by deriving classes and is called once the mainloop stopped.
+	def onStop(self):
+		pass
+
 	def stop(self):
 		self.log("stopping %s" % self)
+		if hasattr(self,"onStop"):
+			self.onStop()
 		self.windowThread.running	= False
 		self.thread.running		= False
 

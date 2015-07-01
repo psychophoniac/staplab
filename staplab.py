@@ -55,6 +55,7 @@ class stapLab():
 				sleep(1.0)
 			except KeyboardInterrupt:
 				self.stop()
+				return
 			except:
 				self.log("error in stapLab mainLoop")
 				raise
