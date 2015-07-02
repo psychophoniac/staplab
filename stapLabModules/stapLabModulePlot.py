@@ -10,11 +10,11 @@ import pylab as pl
 import random
 
 #this is the base module for the stapLab Modules
-class stapLabModulePlot():
-	def __init__(self,name,queue,logStream=print):
+class stapLabModulePlot(object):
+	def __init__(self,name = None,queue = None,logStream=print):
 		self.id			= id(self)
 		self.log		= logStream
-		self.name		= name
+		self.name		= name if name is not None else self.__class__.__name__
 		self.queue		= queue
 		self.stapRequirements	= {	# {
 						#	"stapModuleName":["Args"] 	<-- stapModules to start and connect with this stapLabModule
@@ -36,7 +36,9 @@ class stapLabModulePlot():
 		return "<%s(id:%d), queue=%s,req= %s %s>" % (self.name,self.id,str(self.queue),str(self.stapRequirements),str(self.refRequirements))
 
 	def setReferences(self,refDict):
-		self.plt	= refDict['plt']
+		#self.plt	= refDict['plt']
+		for ref in refDict:
+			setattr(self,ref,refDict[ref])
 		
 	def enqData(self,data):
 		if self.queue is not None:

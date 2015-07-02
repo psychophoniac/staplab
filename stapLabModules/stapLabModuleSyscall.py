@@ -8,27 +8,15 @@ from stapLabModulePlot import stapLabModulePlot
 
 #this is the base module for the stapLab Modules
 class stapLabModuleSyscall(stapLabModulePlot):
-	def __init__(self,name,queue,logStream=print):
+	def __init__(self,name = None,queue = None,logStream=print):
+		super(stapLabModuleSyscall,self).__init__(None,queue,logStream)
 		self.id			= id(self)
 		self.log		= logStream
-		self.name		= name
+		self.name		= name if name is not None else self.__class__.__name__
 		self.queue		= queue
-		super(stapLabModuleSyscall,self).__init__("stapLabModulePlot",queue,logStream)
 		self.stapRequirements	= {"syscall":[]}	# {stapModuleName:[Args]}
 		self.refRequirements	= ['plt','pl']
 		self.stats		= {}			# {syscall:count}
-		#self.thread		= Thread(target=self.run)
-		#self.thread.daemon	= True
-		#self.thread.running	= True
-		#self.thread.start()
-
-	def __str__(self):
-		return "<%s(id:%d), queue=%s,req= %s %s>" % (self.name,self.id,str(self.queue),str(self.stapRequirements),str(self.refRequirements))
-
-	def setReferences(self,refDict):
-		#TODO automatize this?
-		self.plt	= refDict['plt']
-		self.pl		= refDict['pl']
 		
 	def plot(self):
 		self.log("plot syscall stuff")
