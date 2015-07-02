@@ -24,9 +24,6 @@ class Dispatcher():
 			self.thread.daemon	= True
 			self.thread.running	= True
 			self.thread.start()
-	
-		#def log(self,logStr):
-		#	print logStr
 
 		def __str__(self):
 			return "<stapModule %s(id:%d), queue=%s, handle=%s>" % (self.name,self.id,str(self.queue),str(self.handle))
@@ -66,18 +63,21 @@ class Dispatcher():
 			self.handle.terminate()	#TODO check if really terminated
 			self.thread.running	= False
 	
-	def __init__(self,stapLabModulesDir="stapLabModules",stapModulesDir="gather",references=[],logStream=print):
+	def __init__(self,registerCallbackFunc,stapLabModulesDir="stapLabModules",stapModulesDir="gather",logStream=print):#references=[]):
 		self.log		= logStream
+		self.registerCallback	= registerCallbackFunc
 		self.stapLabModulesDir	= stapLabModulesDir
 		self.stapModulesDir	= stapModulesDir
 		self.stapLabModules	= {}			# {stapLabModule.id:stapLabModule}
 		self.stapModules	= {}			# {stapModule.id:stapModule}
-		self.references		= references		# {'referenceName':Object}
 		self.outputHandler	= outputHandler()
 		self.thread		= Thread(target=self.run)
 		self.thread.daemon	= True
 		self.thread.running	= True
 		self.thread.start()
+
+	def registerCallback(self,func,timer):
+		pass
 
 	def dispatchStapLabModule(self,module,target):
 		self.log("dispatching module %s" % module)
@@ -103,23 +103,18 @@ class Dispatcher():
 		if stapLabModuleInstance is not None:
 			#self.log("instance of module %s(%s) created. Handle requirements." % (module,stapLabModuleInstance))
 
-			requirements	= stapLabModuleInstance.stapRequirements	# load dict of stapModules we need to dispatch
-			refRequirements	= stapLabModuleInstance.refRequirements		# load list of references this module needs
-			
-			if len(refRequirements) > 0:
-				refDict		= {}
-				for refReq in refRequirements:
-					try:
-						refDict[refReq]	= self.references[refReq]
-					except KeyError:
-						self.log("cannot privide reference Requirement: %s" % refReq)
-				stapLabModuleInstance.setReferences(refDict)
+			requirements		= stapLabModuleInstance.stapRequirements	# load dict of stapModules we need to dispatch
+			callbackRequirements	= stapLabModuleInstance.callbackRequirements
 
 			#self.log("module %s requirements: %s" % (module,requirements))
 			for requirement in requirements:
 				args		= requirements[requirement]
 				stapModule	= self.dispatchStapModule(name=requirement,args=args,target=target)
 				self.outputHandler.registerStapLabModule(stapLabModuleInstance,stapModule)
+
+			if len(callbackRequirements) > 0:
+				for func, timer in callbackRequirements:
+					self.registerCallback(func,timer)
 			
 			self.stapLabModules[stapLabModuleInstance.id]	= stapLabModuleInstance
 			#self.log("handling requirements for %s successfull!" % stapLabModuleInstance)
@@ -140,8 +135,6 @@ class Dispatcher():
 			self.log("not found: %s" % filename)
 			return None
 
-		#self.log("dispatching stapScript %s with script %s" %(name,filename))
-
 		stapModuleInstance	= self.stapModule(name,filename,target,args=args,queue=None)	# name, script, target, args, queue
 		if stapModuleInstance is not None:
 			self.outputHandler.registerStapModule(stapModuleInstance)
@@ -157,8 +150,6 @@ class Dispatcher():
 	def dispatchStapLabModuleAll(self,modules,target):
 		for module in modules:
 			stapLabModuleInstance		= self.dispatchStapLabModule(module,target)
-			#self.stapLabModules[stapLabModuleInstance.id]	= stapLabModuleInstance
-			#self.log("disptached: %s, mods: %s" % (str(stapLabModuleInstance), self.stapLabModules))
 
 	def run(self):
 		# wait for at least one module to be running
@@ -174,7 +165,7 @@ class Dispatcher():
 				if stapLabModule.thread.running:
 					modulesRunning[stapLabModuleID]		= self.stapLabModules[stapLabModule.id]
 			self.stapLabModules		= modulesRunning
-			sleep(1)
+			sleep(0.1)
 		self.log("dispatcher has no open modules left, leaving mainLoop")
 		self.stop()
 

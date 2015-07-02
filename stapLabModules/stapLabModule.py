@@ -32,11 +32,6 @@ class stapLabModule():
 	def run(self):
 		self.log("module %s entering mainLoop" % self)
 		while self.thread.running:
-			#if self.queue is not None:
-			#	while not self.queue.empty():
-			#		data	= self.queue.get()
-			#		print "%s|%s" %(self.name,data)
-			#		#TODO process() functionality?
 			print("stapLabModule running")
 			sleep(1)
 		self.log("module %s leaving mainLoop" % self)

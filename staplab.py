@@ -6,20 +6,17 @@ from threading import Thread
 from dispatcher import Dispatcher
 import argparse
 from time import sleep
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import pylab as pl
 
 class stapLab():
 	def __init__(self,logStream=print):
 		self.log		= logStream
-		self.dispatcher		= Dispatcher(references={'plt':plt,'pl':pl},logStream=logStream)
+		self.dispatcher		= Dispatcher(registerCallbackFunc = self.registerGUIcallback,logStream=logStream)#references={'plt':plt,'pl':pl})
 		self.options		= self.parseargs()
+		self.timers		= []
 		#print(self.log)
 		self.start()
-		
-	#def log(self,logStr):
-		#print logStr
-	#	self.logStream(logStr)
 
 	def parseargs(self):
 		# parse args
@@ -39,20 +36,32 @@ class stapLab():
 		self.log(args)
 		return args
 
+	def registerGUIcallback(self,func,timer=20):
+		fig	= pl.figure()
+		self.log("set timer for %s" % str(func))
+		def guiCallBack(func,figure):
+			func(figure)
+			manager = pl.get_current_fig_manager()
+			manager.canvas.draw()
+		timer	= fig.canvas.new_timer(interval = 500)
+		timer.add_callback(guiCallBack,func,fig)
+		timer.start()
+		self.timers	+= [timer]
+
 	def start(self):
 		self.dispatcher.dispatchStapLabModuleAll(modules=self.options['modules'], target=self.options['target-pid'])
-		#plt.show(block=False)
 		self.log("entering stapLab mainLoop")
 		
 		# wait for dispatcher to launch at least one module
 		while self.dispatcher.stapLabModules == 0:
 			sleep(1)
+		
 		# now run until we have no modules left to process
 		while len(self.dispatcher.stapLabModules) > 0:
 			try:
 				# we do this so we can catch KeyboardInterrupts better
-				#plt.draw()
-				sleep(1.0)
+				pl.show()
+				sleep(0.1)
 			except KeyboardInterrupt:
 				self.stop()
 				return

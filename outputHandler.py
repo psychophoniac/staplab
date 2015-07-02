@@ -14,7 +14,7 @@ class outputHandler():
 			self.id				= id(self)
 			self.log			= logStream
 			self.name			= stapModuleInstance.name
-			self.queue			= Queue()
+			self.queue			= Queue()	# the input queue
 			self.receivers			= []
 			self.interval			= interval	# check every x seconds for output in queue. 0 means go as fast as possible (causes high CPU load)
 			self.withdraw			= withdraw	# if True, drop incomming input if we have no listeners
@@ -77,9 +77,6 @@ class outputHandler():
 	def __init__(self,logStream=print):
 		self.log		= logStream
 		self.streams		= {}	# {stapModule.id:<Stream>}
-
-	#def log(self,logStr):
-	#	print logStr
 
 	# register a systemtap-skript for output
 	# returns the Queue

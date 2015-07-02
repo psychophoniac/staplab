@@ -4,78 +4,49 @@ for folder in ["gather", "stapLabModules"]:
 from threading import Thread
 from queue import Queue
 from time import sleep
-import numpy as np
-#import matplotlib.pyplot as plt
-import pylab as pl
-import random
+from datetime import datetime
 
-#this is the base module for the stapLab Modules
+# this is the base module for the stapLab Modules that plot stuff. (i.e. all at the moment)
+# all one needs to do is override the functions like 
+# plot(), processData(), initGUI() and, if necessary, 
+# stop() or __init__() (don't forget to call self.__super__(className,self)(...)!)
 class stapLabModulePlot(object):
-	def __init__(self,name = None,queue = None,logStream=print):
-		self.id			= id(self)
-		self.log		= logStream
-		self.name		= name if name is not None else self.__class__.__name__
-		self.queue		= queue
-		self.stapRequirements	= {	# {
-						#	"stapModuleName":["Args"] 	<-- stapModules to start and connect with this stapLabModule
-						# }
-						"dummy":[]	# for testing
-					}
-		self.refRequirements	= [	# [
-						# 	"reference"			<-- internal Objects that need to be handed to this Module
-						# ]
-				#		'plt'		# plt is the plot instance that we get our figure Object from
-					]
-		self.thread		= Thread(target=self.run)
-		self.thread.daemon	= True
-		self.thread.running	= True
-#		self.guiInitialized	= False
+	def __init__(self,name = None,queue = None,logStream=print,guiRefreshTime=0.5):
+		self.id				= id(self)
+		self.log			= logStream
+		self.name			= name if name is not None else self.__class__.__name__
+		self.queue			= queue
+		self.stapRequirements		= {	# "stapModuleName":["Args"] 	<-- stapModules to start and connect with this stapLabModule
+						}
+		self.callbackRequirements	= [ (self.plot,500) ]	# callbacks to be called by a timer run in the main thread
+		self.guiRefreshTime		= guiRefreshTime
+		self.thread			= Thread(target=self.run)
+		self.thread.daemon		= True
+		self.thread.running		= True
 		self.thread.start()
 
-	def __str__(self):
-		return "<%s(id:%d), queue=%s,req= %s %s>" % (self.name,self.id,str(self.queue),str(self.stapRequirements),str(self.refRequirements))
 
-	def setReferences(self,refDict):
-		#self.plt	= refDict['plt']
-		for ref in refDict:
-			setattr(self,ref,refDict[ref])
+	def __str__(self):
+		return "<%s(id:%d), queue=%s,req= %s>" % ( self.name,
+									self.id,
+									str(self.queue),
+									str(self.stapRequirements)
+								)
 		
 	def enqData(self,data):
 		if self.queue is not None:
-			self.queue.put(data)
-
-	def getStapRequirements(self):
-		return self.stapRequirements
-	
-	def getRefRequirements(self):
-		return self.refRequirements
-
-	def initGUI(self):
-		self.log("initGUI()")
+			self.queue.put(data)		# this call is blocking. This is intentional, so we are thread-safe (on the cost of speed).
 
 	# this function is to be overridden by derived classes that plot stuff. The drawing logic is to be inserted here.
-	def plot(self):
-		self.log("plot")
+	def plot(self,figure = None):
+		self.log("module %s plot()" % str(self))
 
 	# this function is to be overridden by derived classes and is set to contain the data handling logic.
 	def processData(self,data):
 		self.log("processData")
 
-	def drawGUI(self):
-		# wait until all refRequirements are passed to this module
-		while False in list(map((lambda x: hasattr(self,x)), self.refRequirements)):
-			sleep(0.1)
-		self.initGUI()
-		while self.windowThread.running:
-			self.plot()
-			sleep(1)
-
 	def run(self):
 		self.log("module %s entering mainLoop" % self)
-		self.windowThread		= Thread(target=self.drawGUI)
-		self.windowThread.daemon	= True
-		self.windowThread.running	= True
-		self.windowThread.start()
 		while self.thread.running:
 			if self.queue is not None:
 				while not self.queue.empty():
@@ -93,7 +64,6 @@ class stapLabModulePlot(object):
 		self.log("stopping %s" % self)
 		if hasattr(self,"onStop"):
 			self.onStop()
-		self.windowThread.running	= False
 		self.thread.running		= False
 
 
