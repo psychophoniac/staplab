@@ -1,4 +1,4 @@
-#from __future__ import print_function
+	#from __future__ import print_function
 import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
@@ -24,6 +24,9 @@ class stapLab():
 		# subargument structure so we can set individual options to each module, e.g.:
 		# stapLab tid moduleA optionA1 optionB1 moduleB optionA2 optionB2
 		# stapLab [-f] tid [module [option]]
+		# -> Theoretically this could also be done by just simply copying an existing module and quickly modifiying the sourcecode
+		# the advantage of this would be that we keep program complexity lower and it is more powerful to do it in code, 
+		# compared to using switches and the cli parameters.
 		parser = argparse.ArgumentParser(description='staplab - systemtap module dispatcher and data visualizer')
 		parser.add_argument('target-pid', type=int, metavar="target_pid",
 					help='target process ID. Must be greater than zero.')
@@ -36,14 +39,17 @@ class stapLab():
 		self.log(args)
 		return args
 
-	def registerGUIcallback(self,func,timer=20):
+	def registerGUIcallback(self,func,timerInterval=20):
 		fig	= pl.figure()
 		self.log("set timer for %s" % str(func))
 		def guiCallBack(func,figure):
-			func(figure)
-			manager = pl.get_current_fig_manager()
-			manager.canvas.draw()
-		timer	= fig.canvas.new_timer(interval = 500)
+			try:
+				func(figure)
+				#manager = pl.get_current_fig_manager()
+				#manager.canvas.draw()
+			except KeyboardInterrupt:
+				self.stop()
+		timer	= fig.canvas.new_timer(interval = timerInterval)
 		timer.add_callback(guiCallBack,func,fig)
 		timer.start()
 		self.timers	+= [timer]
@@ -64,7 +70,6 @@ class stapLab():
 				sleep(0.1)
 			except KeyboardInterrupt:
 				self.stop()
-				return
 			except:
 				self.log("error in stapLab mainLoop")
 				raise
