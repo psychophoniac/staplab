@@ -49,7 +49,7 @@ class stapLabModuleIPSRStats(stapLabModulePlot):
 					subplot.set_xticks(np.arange(len(indices)) + width)
 					subplot.set_xticklabels(indices, rotation=90)
 					subplot.legend((self.rects[proto][0],self.rects[proto][1]), ('sent','recv'))
-					figure.tight_layout()
+				figure.tight_layout()
 				upd		= True
 			# these are internal errors of matplotlib that happen on the beginning of data collection. silence them.
 			# it is likely they happen since so much async stuff is going on here and that is not what matplotlib was built for
@@ -58,7 +58,8 @@ class stapLabModuleIPSRStats(stapLabModulePlot):
 			except AttributeError:
 				pass
 		else:
-			subplot.text(0, 0, "no Data yet", fontsize=12)
+			idx = {'TCP':0,'UDP':1}[proto]
+			self.subplot[idx].text(0, 0, "no Data yet", fontsize=12)
 		return upd
 		
 	def plot(self,figure):

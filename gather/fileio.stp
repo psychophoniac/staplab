@@ -1,0 +1,59 @@
+#! /usr/bin/env stap
+
+function isTarget(){
+	return pid() == target()
+}
+
+global fn	// [filename,handle]
+
+probe syscall.open.return {
+	if (isTarget()){
+		filename	= user_string($filename)
+		if ($return != -1) {
+			fn[$return]		= filename
+			printf("open file:%s fd:%d succ\n", filename, $return)
+		} else {
+			printf("open file:%s fail\n", filename)	
+		}
+	}
+}
+
+probe syscall.read.return {
+	if (isTarget()){
+		f 	= sprintf("%d",$fd)
+		if($fd in fn)
+			f 	= fn[$fd]
+		else {
+			// this is a little hacky:
+			// we access the tasks filetable in the kernel and get the filename from the handle
+			// this way we can find out about filenames we did not know yet
+			file	= @cast(task_current(), "task_struct")->files->fdt->fd[$fd];
+			f	= __file_filename(file)
+			fn[$fd]	= f
+		}
+		bytes = $return
+		if (bytes > 0)
+			printf("read file:%s bytes:%d\n", f, bytes)
+	}
+}
+
+probe syscall.write.return {
+	if (isTarget()){
+		f 	= sprintf("%d",$fd)
+		if($fd in fn)
+			f 	= fn[$fd]
+		bytes = $return
+		if (bytes > 0)
+			printf("write file:%s bytes:%d\n", f, bytes)
+	}
+}
+
+probe syscall.close {
+	if (!isTarget()){
+		f	= sprintf("%d",$fd)
+		if ($fd in fn)
+			f 	= fn[$fd]
+		printf("close file:%s\n", f)
+		delete fn[$fd]
+	}
+}
