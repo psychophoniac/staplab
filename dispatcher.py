@@ -1,120 +1,75 @@
 import sys
-for folder in ["gather", "stapLabModules"]:
+for folder in ["gather", "stapLabModules","generatorModules"]:
 	sys.path.append(folder)
 import os
 import glob
 from outputHandler import outputHandler
+# TODO:
+# make the generator Modules and the stapModules abstract enough,
+# so that we can just load the classes, instantiate them and let them run
+from stapModule import stapModule
+#from dataGeneratorModule
 import subprocess
 from threading import Thread
 from time import sleep
 
-class Dispatcher():
+# TODO:
+# make this document more readable
 
-	class stapModule():
-		def __init__(self,name,script,target,args,queue,logStream=print):	# TODO: follow children
-			self.id			= id(self)
-			self.log		= logStream
-			self.name		= name
-			self.queue		= queue
-			self.handle		= None
-			self.script		= script
-			self.target		= target
-			self.args		= args
-			self.thread		= Thread(target=self.outputWorkerMain)
-			self.thread.daemon	= True
-			self.thread.running	= True
-			self.thread.start()
-
-		def __str__(self):
-			return "<stapModule %s(id:%d), queue=%s, handle=%s>" % (self.name,self.id,str(self.queue),str(self.handle))
-
-		def outputWorkerMain(self):
-			#self.log("outputWorker for stapModule %s started" % self.name)
-			while self.thread.running:
-				if self.handle is not None:
-					while self.handle.poll() is not None:
-						sleep(0.01)
-					for line in iter(self.handle.stdout.readline, b''):
-						if self.queue is not None:	# we can have a stapModule without an currently valid queue
-							self.queue.put(line.rstrip())
-					self.handle.stdout.close()
-			#self.log("outputWorker for stapModule %s stopped" % self.name)
-
-		def run(self):
-			cmd 			= [
-							'stap', 				# stap bin
-							'-s 16', 				# max kernel buffer for stap <-> user com
-							'-DMAXSTRINGLEN=16384',			# max String length
-							self.script					# stap script for module
-						]
-			cmd 			+= self.args
-			cmd 			+= ['-x', str(self.target)]				# stap target PID
-			#self.log("dispatch command: %s" % cmd)
-			self.handle		 = subprocess.Popen(
-							cmd,
-							stdout=subprocess.PIPE,
-							stderr=subprocess.STDOUT,	# pipe errors to stdout
-							universal_newlines=True
-						)
-			#self.log("handle: %s" % str(self.handle))
-
-		def stop(self):
-			#self.log("stopping %s" % self)
-			self.handle.terminate()	#TODO check if really terminated
-			self.thread.running	= False
-	
-	def __init__(self,registerCallbackFunc,stapLabModulesDir="stapLabModules",stapModulesDir="gather",logStream=print):#references=[]):
-		self.log		= logStream
-		self.registerCallback	= registerCallbackFunc
-		self.stapLabModulesDir	= stapLabModulesDir
-		self.stapModulesDir	= stapModulesDir
-		self.stapLabModules	= {}			# {stapLabModule.id:stapLabModule}
-		self.stapModules	= {}			# {stapModule.id:stapModule}
-		self.outputHandler	= outputHandler()
-		self.thread		= Thread(target=self.run)
-		self.thread.daemon	= True
-		self.thread.running	= True
+class Dispatcher():	
+	def __init__(self,
+				registerCallbackFunc,
+				stapLabModulesDir="stapLabModules",
+				stapModulesDir="gather",
+				generatorModulesDir="generatorModules",
+				logStream=print):#references=[]):
+		self.log			= logStream
+		self.registerCallback		= registerCallbackFunc
+		self.stapLabModulesDir		= stapLabModulesDir
+		self.stapModulesDir		= stapModulesDir
+		self.generatorModulesDir	= generatorModulesDir
+		self.stapLabModules		= {}			# {stapLabModule.id:stapLabModule}
+		self.stapModules		= {}			# {stapModule.id:stapModule}
+		self.generatorModules		= {}
+		self.outputHandler		= outputHandler()
+		self.thread			= Thread(target=self.run)
+		self.thread.daemon		= True
+		self.thread.running		= True
 		self.thread.start()
 
-	def registerCallback(self,func,timer):
-		pass
-
 	def dispatchStapLabModule(self,module,target):
-		self.log("dispatching module %s" % module)
-		workdir		= os.path.dirname(os.path.realpath(__file__))
-		filename	= (workdir + "/" + self.stapLabModulesDir + "/" + module + ".py")
-
-		if os.path.exists(filename):
-			pass
-			self.log("found: %s" % filename)
-		else:
-			self.log("not found: %s" % filename)
-			return None
-		
-		# create instance of the module by importing the class and creating an instance
-		pymod				= __import__(module)
-		stapLabModuleInstance		= None
-		try:
-			stapLabModuleInstance	= getattr(pymod, module)(name=module,queue=None)
-		except AttributeError:
-			#TODO implement cli-switch to exit if failed
-			self.log("module %s not found, no such module" % module)
-			raise
+		stapLabModuleInstance	= self.instanciateModule(
+									moduleName=module,
+									modDir=self.stapLabModulesDir#,
+									#[module,[],None]
+								)
 		if stapLabModuleInstance is not None:
 			#self.log("instance of module %s(%s) created. Handle requirements." % (module,stapLabModuleInstance))
 
 			requirements		= stapLabModuleInstance.stapRequirements	# load dict of stapModules we need to dispatch
 			callbackRequirements	= stapLabModuleInstance.callbackRequirements
+			generatorRequirements	= []
+			if hasattr(stapLabModuleInstance,'generatorRequirements'):
+				generatorRequirements	= stapLabModuleInstance.generatorRequirements
 
 			#self.log("module %s requirements: %s" % (module,requirements))
 			for requirement in requirements:
 				args		= requirements[requirement]
-				stapModule	= self.dispatchStapModule(name=requirement,args=args,target=target)
+				stapModule	= self.dispatchStapModule(	
+										name=requirement,
+										args=args,
+										target=target
+									)
 				self.outputHandler.registerStapLabModule(stapLabModuleInstance,stapModule)
 
 			if len(callbackRequirements) > 0:
 				for func, timer in callbackRequirements:
 					self.registerCallback(func,timer)
+
+			if len(generatorRequirements) > 0:
+				for genReqMod in generatorRequirements:
+					stream	= self.dispatchGeneratorModule(genReqMod)
+					stream.register(stapLabModuleInstance)
 			
 			self.stapLabModules[stapLabModuleInstance.id]	= stapLabModuleInstance
 			#self.log("handling requirements for %s successfull!" % stapLabModuleInstance)
@@ -129,16 +84,22 @@ class Dispatcher():
 		filename	= (workdir + "/" + self.stapModulesDir + "/" + name + ".stp")
 		
 		if os.path.exists(filename):
-			pass
 			self.log("found: %s" % filename)
 		else:
 			self.log("not found: %s" % filename)
 			return None
 
-		stapModuleInstance	= self.stapModule(name,filename,target,args=args,queue=None)	# name, script, target, args, queue
+		stapModuleInstance	= stapModule(
+							name,
+							filename,
+							target,
+							args=args,
+							queue=None
+					)
 		if stapModuleInstance is not None:
 			self.outputHandler.registerStapModule(stapModuleInstance)
 			stapModuleInstance.run()
+
 			self.stapModules[stapModuleInstance.id]	= stapModuleInstance
 			#self.log("dispatched stapModule %s with script %s" %(stapModuleInstance,filename))
 			return stapModuleInstance
@@ -150,6 +111,39 @@ class Dispatcher():
 	def dispatchStapLabModuleAll(self,modules,target):
 		for module in modules:
 			stapLabModuleInstance		= self.dispatchStapLabModule(module,target)
+
+	def dispatchGeneratorModule(self,moduleName):
+		generatorModuleInstance	= self.instanciateModule(
+									moduleName,				# the generatorModule's classname
+									self.generatorModulesDir#,		# path to look in for the generator
+									#[moduleName,[],None])			# *ModuleArgs
+								)
+		stream		= None
+		if generatorModuleInstance is not None:
+			self.generatorModules[generatorModuleInstance.id]	= generatorModuleInstance
+			stream		= self.outputHandler.registerDataGenerator(generatorModuleInstance)
+		return stream
+
+	def instanciateModule(self,moduleName,modDir,*modArgs):
+		self.log("dispatching module %s" % moduleName)	
+		workdir		= os.path.dirname(os.path.realpath(__file__))
+		filename	= (workdir + "/" + modDir + "/" + moduleName + ".py")
+		
+		if os.path.exists(filename):
+			self.log("found: %s" % filename)
+		else:
+			self.log("not found: %s" % filename)
+			return None
+
+		try:
+			mod		= __import__(moduleName)
+			instance	= getattr(mod,moduleName)(modArgs)
+			return instance
+		except AttributeError or TypeError:
+			#TODO implement cli-switch to exit if failed
+			self.log("module %s not found, no such module" % moduleName)
+			raise
+
 
 	def run(self):
 		# wait for at least one module to be running
@@ -185,7 +179,8 @@ class Dispatcher():
 if __name__ == "__main__":
 	try:
 		d = Dispatcher()
-		d.dispatchStapLabModule("stapLabModule")
+		#d.dispatchStapLabModule("stapLabModule")
+		d.dispatchGeneratorModule("dataGeneratorModule")
 		d.run()
 	except KeyboardInterrupt:
 		d.stop()

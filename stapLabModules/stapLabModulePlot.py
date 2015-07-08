@@ -27,7 +27,7 @@ class stapLabModulePlot(object):
 
 
 	def __str__(self):
-		return "<%s(id:%d), queue=%s,req= %s>" % ( self.name,
+		return "<%s(id:%d), queue=%s,req= %s>" % ( 		self.name,
 									self.id,
 									str(self.queue),
 									str(self.stapRequirements)

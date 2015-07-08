@@ -14,19 +14,16 @@ class outputHandler():
 			self.id				= id(self)
 			self.log			= logStream
 			self.name			= stapModuleInstance.name
-			self.queue			= Queue()	# the input queue
+			self.queue			= Queue()			# the input queue
 			self.receivers			= []
-			self.interval			= interval	# check every x seconds for output in queue. 0 means go as fast as possible (causes high CPU load)
-			self.withdraw			= withdraw	# if True, drop incomming input if we have no listeners
+			self.interval			= interval			# check every x seconds for output in queue.
+			self.withdraw			= withdraw			# if True, drop incomming input if we have no listeners
 			self.thread			= Thread(target=self.run)
 			self.thread.daemon		= True
 			self.thread.running		= True
 			self.thread.start()
 			stapModuleInstance.queue	= self.queue
 
-		#def log(self,logStr):
-		#	print logStr
-		
 		def __str__(self):
 			return "<Stream,name=%s,queue=%s,receivers=%s>" % (self.name, self.queue, self.receivers)
 		
@@ -39,13 +36,13 @@ class outputHandler():
 				else:
 					self.log("%s already in receivers of Stream %s" % (stapModuleInstance.name, self))
 
-		def unregister(self,stapLabModuleInstance):
-			if stapLabModuleInstance is not None:
+		def unregister(self,module):
+			if module is not None:
 				try:
-					self.receivers.remove(stapLabModuleInstance)
-					self.log("unregistered %s from %s" % (str(stapLabModuleInstance), self.name))
+					self.receivers.remove(module)
+					self.log("unregistered %s from %s" % (str(module), self.name))
 				except ValueError:
-					self.log("cannot unregister module %s to stream %s" %(stapLabModuleInstance,self))
+					self.log("cannot unregister module %s to stream %s" %(module,self))
 
 		def emtpyQueue(self):
 			with self.queue.mutex:
@@ -87,6 +84,14 @@ class outputHandler():
 			return self.streams[stapModuleInstance.id]
 		else:
 			self.log("stream for %s with id %d already present!" % (stapModuleInstance.name, stapModuleInstance.id))
+			return None
+
+	def registerDataGenerator(self,dataGeneratorInstance):
+		if not dataGeneratorInstance.id in self.streams:
+			self.streams[dataGeneratorInstance.id]	= self.Stream(dataGeneratorInstance)
+			return self.streams[dataGeneratorInstance.id]
+		else:
+			self.log("stream for %s with id %d already present!" % (dataGeneratorInstance.name, dataGeneratorInstance.id))
 			return None
 
 	# register a stapLab-module for receiving the output of a systemtap-script

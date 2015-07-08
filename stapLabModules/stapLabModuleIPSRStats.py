@@ -19,6 +19,7 @@ class stapLabModuleIPSRStats(stapLabModulePlot):
 							"ip_sr_activity":[]
 						}
 		self.blackListIP		= {"source":["127.0.0.1"],"dest":["127.0.0.1"]}	# IP's to ignore {'in':["ip"],'out':["ip"]}
+		#TODO: Port Filter?
 		self.callbackRequirements	= [ (self.plot,500) ]				# [(callbackFunc, timer)]
 		self.stats			= {'TCP':{},'UDP':{}}				# {tcp:{port:(send,recv)},udp:{port:(send,recv)}}
 		self.scale			= 1000						# measure in bytes / scale
