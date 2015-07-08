@@ -1,0 +1,26 @@
+#! /usr/bin/env stap
+
+function isTarget() {
+	return pid() == target()
+}
+
+probe kprocess.create {
+	if( isTarget() ) {
+		printf("%s(%d) %s create %d\n",
+			execname(), pid(), ppfunc(), new_pid)
+	}
+}
+
+probe kprocess.exec {
+	if( isTarget() ) {
+		printf("%s(%d) exec %s\n",
+			execname(), pid(), filename)
+	}
+}
+
+probe kprocess.* {
+	if (isTarget()){
+		printf("%s(%d) func:%s\n",
+			execname(), pid(), ppfunc())
+	}
+}
