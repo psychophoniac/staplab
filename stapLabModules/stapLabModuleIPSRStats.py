@@ -9,11 +9,11 @@ from datetime import datetime
 import numpy as np
 
 class stapLabModuleIPSRStats(stapLabModulePlot):
-	def __init__(self,name = None,queue = None,logStream=print):
-		super(stapLabModuleIPSRStats,self).__init__(None,queue,logStream)
+	def __init__(self,name = None,queue = None,args = {},logStream=print):
+		super(stapLabModuleIPSRStats,self).__init__(None,queue,args=args,logStream=logStream)
 		self.id				= id(self)
 		self.log			= logStream
-		self.name			= name if name is not None else self.__class__.__name__
+		self.name			= "stapLabModuleIPSRStats" if name is None else self.__class__.__name__
 		self.queue			= queue
 		self.stapRequirements		= { 
 							"ip_sr_activity":[]

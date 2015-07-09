@@ -11,11 +11,12 @@ from datetime import datetime
 # plot(), processData(), initGUI() and, if necessary, 
 # stop() or __init__() (don't forget to call self.__super__(className,self)(...)!)
 class stapLabModulePlot(object):
-	def __init__(self,name = None,queue = None,logStream=print,guiRefreshTime=0.5):
+	def __init__(self,name = None,queue = None, args = {}, logStream=print,guiRefreshTime=0.5):
 		self.id				= id(self)
 		self.log			= logStream
-		self.name			= name if name is not None else self.__class__.__name__
+		self.name			= "stapLabModulePlot" if name is not None else self.__class__.__name__
 		self.queue			= queue
+		self.args			= args
 		self.stapRequirements		= {	# "stapModuleName":["Args"] 	<-- stapModules to start and connect with this stapLabModule
 						}
 		self.callbackRequirements	= [ (self.plot,500) ]	# callbacks to be called by a timer run in the main thread
@@ -27,14 +28,15 @@ class stapLabModulePlot(object):
 
 
 	def __str__(self):
-		return "<%s(id:%d), queue=%s,req= %s>" % ( 		self.name,
-									self.id,
-									str(self.queue),
-									str(self.stapRequirements)
-								)
+		return "<%s(id:%d), args=%s, queue=%s,req= %s>" % ( 		self.name,
+										self.id,
+										str(self.args),
+										str(self.queue),
+										str(self.stapRequirements)
+									)
 		
 	def enqData(self,data):
-		if self.queue is not None:
+		if isinstance(self.queue,Queue):
 			self.queue.put(data)		# this call is blocking. This is intentional, so we are thread-safe (on the cost of speed).
 
 	# this function is to be overridden by derived classes that plot stuff. The drawing logic is to be inserted here.
@@ -48,11 +50,10 @@ class stapLabModulePlot(object):
 	def run(self):
 		self.log("module %s entering mainLoop" % self)
 		while self.thread.running:
-			if self.queue is not None:
+			if isinstance(self.queue,Queue):
 				while not self.queue.empty():
 					data	= self.queue.get()
 					self.processData(data)
-					#self.drawGUI()
 			sleep(0.1)
 		self.log("module %s leaving mainLoop" % self)
 

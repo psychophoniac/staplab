@@ -1,5 +1,6 @@
 from threading import Thread
 from time import sleep
+from queue import Queue
 
 # Wrapper class for generator Modules, like data Playback or net statistics
 class dataGeneratorModule():
@@ -15,16 +16,14 @@ class dataGeneratorModule():
 		self.thread.start()
 
 	def __str__(self):
-		return "<%s(id:%d), queue=%s>" % (self.name,self.id,str(self.queue))
+		return "<%s(id:%d), queue=%s, args=%s>" % (self.name,self.id,str(self.queue), str(self.args))
 
 	def run(self):
-		#TODO
-		while self.queue is None:
-			sleep(0.1)
 		while self.thread.running:
 			#data	= subprocess.check_output(['netstat','-autn'],universal_newlines=True)
 			#data	= data.split()
-			self.queue.put("testData")
+			if isinstance(self.queue,Queue):
+				self.queue.put("testData")
 			sleep(1)
 
 	def stop(self):

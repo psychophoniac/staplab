@@ -12,8 +12,11 @@ import pylab as pl
 class stapLab():
 	def __init__(self,logStream=print):
 		self.log		= logStream
-		self.dispatcher		= Dispatcher(registerCallbackFunc = self.registerGUIcallback,logStream=logStream)#references={'plt':plt,'pl':pl})
 		self.options		= self.parseargs()
+		self.dispatcher		= Dispatcher(	registerCallbackFunc	= self.registerGUIcallback,
+							logStream		= logStream,
+							args			= {'target-pid':self.options['target-pid']}
+						)#references={'plt':plt,'pl':pl})
 		self.timers		= []
 		#print(self.log)
 		self.start()

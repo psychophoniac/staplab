@@ -9,8 +9,8 @@ from datetime import datetime
 import numpy as np
 
 class stapLabModuleSyscall(stapLabModulePlot):
-	def __init__(self,name = None,queue = None,logStream=print):
-		super(stapLabModuleSyscall,self).__init__(None,queue,logStream)
+	def __init__(self,name = None,queue = None,args = {},logStream=print):
+		super(stapLabModuleSyscall,self).__init__(None,queue,args=args,logStream=logStream)
 		self.id				= id(self)
 		self.log			= logStream
 		self.name			= name if name is not None else self.__class__.__name__

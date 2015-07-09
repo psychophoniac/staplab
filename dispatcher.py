@@ -19,9 +19,10 @@ from time import sleep
 class Dispatcher():	
 	def __init__(self,
 				registerCallbackFunc,
-				stapLabModulesDir="stapLabModules",
-				stapModulesDir="gather",
-				generatorModulesDir="generatorModules",
+				args			= {},
+				stapLabModulesDir 	= "stapLabModules",
+				stapModulesDir 		= "gather",
+				generatorModulesDir 	= "generatorModules",
 				logStream=print):#references=[]):
 		self.log			= logStream
 		self.registerCallback		= registerCallbackFunc
@@ -31,6 +32,7 @@ class Dispatcher():
 		self.stapLabModules		= {}			# {stapLabModule.id:stapLabModule}
 		self.stapModules		= {}			# {stapModule.id:stapModule}
 		self.generatorModules		= {}
+		self.args			= args
 		self.outputHandler		= outputHandler()
 		self.thread			= Thread(target=self.run)
 		self.thread.daemon		= True
@@ -39,8 +41,9 @@ class Dispatcher():
 
 	def dispatchStapLabModule(self,module,target):
 		stapLabModuleInstance	= self.instanciateModule(
-									moduleName=module,
-									modDir=self.stapLabModulesDir#,
+									moduleName	= module,
+									modDir		= self.stapLabModulesDir,
+									modArgs		= self.args
 									#[module,[],None]
 								)
 		if stapLabModuleInstance is not None:
@@ -115,7 +118,8 @@ class Dispatcher():
 	def dispatchGeneratorModule(self,moduleName):
 		generatorModuleInstance	= self.instanciateModule(
 									moduleName,				# the generatorModule's classname
-									self.generatorModulesDir#,		# path to look in for the generator
+									self.generatorModulesDir,		# path to look in for the generator
+									{'queue':None,'args':self.args}
 									#[moduleName,[],None])			# *ModuleArgs
 								)
 		stream		= None
@@ -124,7 +128,7 @@ class Dispatcher():
 			stream		= self.outputHandler.registerDataGenerator(generatorModuleInstance)
 		return stream
 
-	def instanciateModule(self,moduleName,modDir,*modArgs):
+	def instanciateModule(self,moduleName,modDir,modArgs={}):
 		self.log("dispatching module %s" % moduleName)	
 		workdir		= os.path.dirname(os.path.realpath(__file__))
 		filename	= (workdir + "/" + modDir + "/" + moduleName + ".py")
@@ -137,7 +141,7 @@ class Dispatcher():
 
 		try:
 			mod		= __import__(moduleName)
-			instance	= getattr(mod,moduleName)(modArgs)
+			instance	= getattr(mod,moduleName)(moduleName,args=modArgs)
 			return instance
 		except AttributeError or TypeError:
 			#TODO implement cli-switch to exit if failed
