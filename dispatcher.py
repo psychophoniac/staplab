@@ -47,7 +47,7 @@ class Dispatcher():
 									#[module,[],None]
 								)
 		if stapLabModuleInstance is not None:
-			#self.log("instance of module %s(%s) created. Handle requirements." % (module,stapLabModuleInstance))
+			self.log("instance of module %s(%s) created. Handle requirements." % (module,stapLabModuleInstance))
 
 			requirements		= stapLabModuleInstance.stapRequirements	# load dict of stapModules we need to dispatch
 			callbackRequirements	= stapLabModuleInstance.callbackRequirements
@@ -55,7 +55,7 @@ class Dispatcher():
 			if hasattr(stapLabModuleInstance,'generatorRequirements'):
 				generatorRequirements	= stapLabModuleInstance.generatorRequirements
 
-			#self.log("module %s requirements: %s" % (module,requirements))
+			self.log("module %s requirements: %s" % (module,requirements))
 			for requirement in requirements:
 				args		= requirements[requirement]
 				stapModule	= self.dispatchStapModule(	
@@ -75,7 +75,7 @@ class Dispatcher():
 					stream.register(stapLabModuleInstance)
 			
 			self.stapLabModules[stapLabModuleInstance.id]	= stapLabModuleInstance
-			#self.log("handling requirements for %s successfull!" % stapLabModuleInstance)
+			self.log("handling requirements for %s successfull!" % stapLabModuleInstance)
 			return stapLabModuleInstance
 		else:
 			return None
@@ -105,7 +105,7 @@ class Dispatcher():
 			stapModuleInstance.run()
 
 			self.stapModules[stapModuleInstance.id]	= stapModuleInstance
-			#self.log("dispatched stapModule %s with script %s" %(stapModuleInstance,filename))
+			self.log("dispatched stapModule %s with script %s" %(stapModuleInstance,filename))
 			return stapModuleInstance
 		else:
 			self.log("could not dispatch stapModule %s with script %s" %(stapModuleInstance,filename))
@@ -134,21 +134,20 @@ class Dispatcher():
 		self.log("dispatching module %s" % moduleName)	
 		workdir		= os.path.dirname(os.path.realpath(__file__))
 		filename	= (workdir + "/" + modDir + "/" + moduleName + ".py")
-		
-		if os.path.exists(filename):
-			self.log("found: %s" % filename)
-		else:
-			self.log("not found: %s" % filename)
-			return None
+		try:		
+			if os.path.exists(filename):
+				self.log("found: %s" % filename)
+			else:
+				#self.log("not found: %s" % filename)
+				raise IOError("File not found: %s" % filename)
 
-		try:
 			mod		= __import__(moduleName)
 			instance	= getattr(mod,moduleName)(moduleName,args=modArgs)
 			return instance
-		except AttributeError or TypeError:
-			#TODO implement cli-switch to exit if failed
+		except AttributeError or TypeError or IOError:
 			self.log("module %s not found, no such module" % moduleName)
-			raise
+			if self.args['hardFail']:
+				raise
 
 
 	def run(self):

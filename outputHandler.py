@@ -17,7 +17,7 @@ class outputHandler():
 	# register a systemtap-skript for output
 	# returns the Queue
 	def registerStapModule(self,stapModuleInstance):
-		#self.log("registering %s" % stapModuleInstance.name)
+		self.log("registering %s" % stapModuleInstance.name)
 		if not stapModuleInstance.id in self.streams:
 			self.streams[stapModuleInstance.id]	= Stream(stapModuleInstance,args = self.args)
 			return self.streams[stapModuleInstance.id]
@@ -37,7 +37,7 @@ class outputHandler():
 	def registerStapLabModule(self,stapLabModule,stapModuleInstance):
 		try:
 			if stapModuleInstance is not None and stapModuleInstance.id in self.streams:
-				#self.log("registering stapLabModule %s to stapModule %s" % (stapLabModule,stapModuleInstance.name))
+				self.log("registering stapLabModule %s to stapModule %s" % (stapLabModule,stapModuleInstance.name))
 				self.streams[stapModuleInstance.id].register(stapLabModule)
 			else:
 				raise KeyError

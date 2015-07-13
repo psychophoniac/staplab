@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 #from __future__ import print_function
 import sys
 for folder in ["gather", "stapLabModules"]:
@@ -20,7 +21,8 @@ class stapLab():
 		self.dispatcher		= Dispatcher(	registerCallbackFunc	= self.registerGUIcallback,
 							args			= {
 											'target-pid' 	: self.options['target-pid'],	
-											'logStream'	: self.log
+											'logStream'	: self.log,
+											'hardFail'	: True
 										}
 						)
 		self.timers		= []
@@ -42,6 +44,8 @@ class stapLab():
 					help='module to be dispatched')
 		parser.add_argument('-f','--follow-children', action='store_true',
 					help='if a process forks, include children to the tapset')
+		parser.add_argument('-d','--hardFail', action='store_true',
+					help='fail hard if Module cannot be loaded, i.e. quit and don\'t continue loading other modules')
 		parser.add_argument('-v','--verbose', action='store_true',
 					help='be verbose about what is going on internally')
 

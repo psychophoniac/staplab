@@ -48,7 +48,7 @@ class Stream():
 				self.queue.clear()
 
 		def run(self):
-			#self.log("%s entering mainLoop" % self)
+			self.log("%s entering mainLoop" % self)
 			while self.thread.running:
 				if not self.queue.empty():
 					if len(self.receivers) > 0:
@@ -65,7 +65,7 @@ class Stream():
 						self.unregister(receiver)
 
 				sleep(self.interval)
-			#self.log("%s leaving mainLoop" % self)
+			self.log("%s leaving mainLoop" % self)
 
 		def stop(self):
 			self.thread.running	= False
