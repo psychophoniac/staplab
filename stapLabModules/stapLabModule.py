@@ -7,9 +7,9 @@ from time import sleep
 
 #this is the base module for the stapLab Modules
 class stapLabModule():
-	def __init__(self,name,queue,args={},logStream=print):
+	def __init__(self,name,queue,args={}):
 		self.id			= id(self)
-		self.log		= logStream
+		self.log		= print if 'logStream' not in args else args['logStream']
 		self.name		= name
 		self.queue		= queue
 		self.stapRequirements	= {}	# {stapModuleName:[Args]}

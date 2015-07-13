@@ -7,20 +7,14 @@ import subprocess
 # this module requires "ss" to be installed
 
 class connectionStatsGeneratorModule(dataGeneratorModule):
-	def __init__(self,name,args={},queue=None,logStream=print):	# TODO: follow children
-		super(connectionStatsGeneratorModule,self).__init__(name)
+	def __init__(self,name,queue=None,args={}):	# TODO: follow children
+		self.args		= args
+		self.log		= print if 'logStream' not in args else args['logStream']
+		super(connectionStatsGeneratorModule,self).__init__(name,args)
 		self.id			= id(self)
-		self.log		= logStream
 		self.name		= name if name is not None else self.__class__.__name__
 		self.queue		= queue
-		self.args		= args
-		self.thread		= Thread(target=self.run)
-		self.thread.daemon	= True
-		self.thread.running	= True
 		self.thread.start()
-
-	#def __str__(self):
-	#	return "<%s(id:%d), queue=%s, args=%s>" % (self.name,self.id,str(self.queue),str(self.args))
 
 	def enqData(self,data):
 		if isinstance(self.queue,Queue):
@@ -53,5 +47,5 @@ class connectionStatsGeneratorModule(dataGeneratorModule):
 			sleep(0.5)
 
 	def stop(self):
-		#self.log("stopping %s" % self)
+		self.log("stopping %s" % self)
 		self.thread.running	= False

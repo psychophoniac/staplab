@@ -22,9 +22,9 @@ class Dispatcher():
 				args			= {},
 				stapLabModulesDir 	= "stapLabModules",
 				stapModulesDir 		= "gather",
-				generatorModulesDir 	= "generatorModules",
-				logStream=print):#references=[]):
-		self.log			= logStream
+				generatorModulesDir 	= "generatorModules"
+		):
+		self.log			= print if 'logStream' not in args else args['logStream']
 		self.registerCallback		= registerCallbackFunc
 		self.stapLabModulesDir		= stapLabModulesDir
 		self.stapModulesDir		= stapModulesDir
@@ -33,7 +33,7 @@ class Dispatcher():
 		self.stapModules		= {}			# {stapModule.id:stapModule}
 		self.generatorModules		= {}
 		self.args			= args
-		self.outputHandler		= outputHandler()
+		self.outputHandler		= outputHandler(args=self.args)
 		self.thread			= Thread(target=self.run)
 		self.thread.daemon		= True
 		self.thread.running		= True
@@ -88,6 +88,7 @@ class Dispatcher():
 		
 		if os.path.exists(filename):
 			self.log("found: %s" % filename)
+			pass
 		else:
 			self.log("not found: %s" % filename)
 			return None
@@ -119,7 +120,8 @@ class Dispatcher():
 		generatorModuleInstance	= self.instanciateModule(
 									moduleName,				# the generatorModule's classname
 									self.generatorModulesDir,		# path to look in for the generator
-									{'queue':None,'args':self.args}
+									#modArgs = {'queue':None,'args':self.args}
+									modArgs	= self.args
 									#[moduleName,[],None])			# *ModuleArgs
 								)
 		stream		= None

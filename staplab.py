@@ -10,15 +10,20 @@ from time import sleep
 import pylab as pl
 
 class stapLab():
-	def __init__(self,logStream=print):
+	def __init__(self,
+				logStream	= (lambda _: None)
+		):
 		self.log		= logStream
 		self.options		= self.parseargs()
+		if self.options['verbose']:
+			self.log	= print
 		self.dispatcher		= Dispatcher(	registerCallbackFunc	= self.registerGUIcallback,
-							logStream		= logStream,
-							args			= {'target-pid':self.options['target-pid']}
-						)#references={'plt':plt,'pl':pl})
+							args			= {
+											'target-pid' 	: self.options['target-pid'],	
+											'logStream'	: self.log
+										}
+						)
 		self.timers		= []
-		#print(self.log)
 		self.start()
 
 	def parseargs(self):
@@ -37,6 +42,8 @@ class stapLab():
 					help='module to be dispatched')
 		parser.add_argument('-f','--follow-children', action='store_true',
 					help='if a process forks, include children to the tapset')
+		parser.add_argument('-v','--verbose', action='store_true',
+					help='be verbose about what is going on internally')
 
 		args = vars(parser.parse_args())
 		self.log(args)
@@ -85,3 +92,6 @@ class stapLab():
 
 if __name__ == "__main__":
 	stapLab()
+	sys.exit(0)
+
+

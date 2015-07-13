@@ -9,10 +9,10 @@ from datetime import datetime
 import numpy as np
 
 class stapLabModuleSyscall(stapLabModulePlot):
-	def __init__(self,name = None,queue = None,args = {},logStream=print):
-		super(stapLabModuleSyscall,self).__init__(None,queue,args=args,logStream=logStream)
+	def __init__(self,name = None,queue = None,args = {}):
+		super(stapLabModuleSyscall,self).__init__(None,queue,args=args)
 		self.id				= id(self)
-		self.log			= logStream
+		self.log			= print if 'logStream' not in args else args['logStream']
 		self.name			= name if name is not None else self.__class__.__name__
 		self.queue			= queue
 		self.stapRequirements		= { "syscall" : [] }	# {stapModuleName:[Args]}

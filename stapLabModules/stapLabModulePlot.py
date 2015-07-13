@@ -11,9 +11,9 @@ from datetime import datetime
 # plot(), processData(), initGUI() and, if necessary, 
 # stop() or __init__() (don't forget to call self.__super__(className,self)(...)!)
 class stapLabModulePlot(object):
-	def __init__(self,name = None,queue = None, args = {}, logStream=print,guiRefreshTime=0.5):
+	def __init__(self,name = None,queue = None, args = {} ,guiRefreshTime=0.5):
 		self.id				= id(self)
-		self.log			= logStream
+		self.log			= print if 'logStream' not in args else args['logStream']
 		self.name			= "stapLabModulePlot" if name is not None else self.__class__.__name__
 		self.queue			= queue
 		self.args			= args
