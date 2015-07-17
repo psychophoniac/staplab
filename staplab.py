@@ -1,13 +1,10 @@
 #! /usr/bin/python3
-#from __future__ import print_function
 import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
-from threading import Thread
 from dispatcher import Dispatcher
 import argparse
 from time import sleep
-#import matplotlib.pyplot as plt
 import pylab as pl
 
 class stapLab():

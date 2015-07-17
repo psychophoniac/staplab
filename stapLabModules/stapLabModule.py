@@ -21,9 +21,6 @@ class stapLabModule():
 
 	def __str__(self):
 		return "<%s(id:%d), queue=%s,req= %s %s>" % (self.name,self.id,str(self.queue),str(self.stapRequirements),str(self.refRequirements))
-
-	#def log(self,logStr):
-	#	print logStr
 		
 	def enqData(self,data):
 		if self.queue is not None:

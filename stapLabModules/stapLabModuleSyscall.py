@@ -2,10 +2,7 @@ import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
 from stapLabModulePlot import stapLabModulePlot
-from threading import Thread, Lock
-from queue import Queue
-from time import sleep
-from datetime import datetime
+from threading import Lock
 import numpy as np
 
 class stapLabModuleSyscall(stapLabModulePlot):

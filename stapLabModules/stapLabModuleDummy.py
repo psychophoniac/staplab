@@ -2,7 +2,6 @@ import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
 from threading import Thread
-from Queue import Queue
 from time import sleep
 
 #this is the base module for the stapLab Modules
@@ -21,9 +20,6 @@ class stapLabModuleDummy():
 
 	def __str__(self):
 		return "<%s(id:%d), queue=%s,req= %s %s>" % (self.name,self.id,str(self.queue),str(self.stapRequirements),str(self.refRequirements))
-
-	def log(self,logStr):
-		print logStr
 		
 	def enqData(self,data):
 		if self.queue is not None:
@@ -35,7 +31,7 @@ class stapLabModuleDummy():
 			if self.queue is not None:
 				while not self.queue.empty():
 					data	= self.queue.get()
-					print "%s|%s" %(self.name,data)
+					self.log("%s|%s" % (self.name,data))
 			sleep(0.1)
 		self.log("module %s leaving mainLoop" % self)
 

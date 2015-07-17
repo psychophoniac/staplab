@@ -2,14 +2,12 @@ import sys
 for folder in ["gather", "stapLabModules","generatorModules"]:
 	sys.path.append(folder)
 import os
-import glob
+#import glob
 from outputHandler import outputHandler
 # TODO:
 # make the generator Modules and the stapModules abstract enough,
 # so that we can just load the classes, instantiate them and let them run
 from stapModule import stapModule
-#from dataGeneratorModule
-import subprocess
 from threading import Thread
 from time import sleep
 
@@ -114,7 +112,7 @@ class Dispatcher():
 
 	def dispatchStapLabModuleAll(self,modules,target):
 		for module in modules:
-			stapLabModuleInstance		= self.dispatchStapLabModule(module,target)
+			self.dispatchStapLabModule(module,target)
 
 	def dispatchGeneratorModule(self,moduleName):
 		generatorModuleInstance	= self.instanciateModule(

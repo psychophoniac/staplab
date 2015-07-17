@@ -2,11 +2,7 @@ import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
 from stapLabModulePlot import stapLabModulePlot
-from threading import Thread,Lock
-from queue import Queue
-from time import sleep
-from datetime import datetime
-import numpy as np
+from threading import Lock
 
 class stapLabModuleIPCStats(stapLabModulePlot):
 	def __init__(self,name = None,queue = None,args = {}):
@@ -44,7 +40,8 @@ class stapLabModuleIPCStats(stapLabModulePlot):
 			values			= [ self.stats[idx] for idx in indices ]	# bring values to order
 			sumVal			= sum(values)					# sum of all elements
 			values			= [ elem * 100 / sumVal for elem in values ]	# calculate percentage of pie for every element
-			patches, texts, *rest 	= self.subplot.pie(
+			#patches, texts, *rest 	= 
+			self.subplot.pie(
 									values, 
 									labels 		= indices, 
 									colors		=('g', 'r', 'b', 'y', 'w'),
@@ -71,7 +68,7 @@ class stapLabModuleIPCStats(stapLabModulePlot):
 		self.lock.acquire()
 		self.stats	= {}	# clear stats
 		#self.log("module %s received data: %s" % (str(self), data))
-		dataIdxs	= data[0]
+		#dataIdxs	= data[0]
 		for dataSet in data[1:]:	# first element contains the dataFields
 			#for idx in dataIdxs:	# generic stuff can happen here...
 			#	pass
@@ -83,7 +80,9 @@ class stapLabModuleIPCStats(stapLabModulePlot):
 						pid	= dataSet['prog'].split("/")[0]
 						if pid != "-" and self.args != int(pid):
 							continue
-					else:	#TODO what do we do, if we don't know a pid?
+					else:	
+						# TODO: 
+						# what do we do, if we don't know a pid?
 						# -> most likely the connection does not matter, since it is likely we run under a different uid
 						# and therefore have no insight on the processes' pid
 						#print(dataSet)

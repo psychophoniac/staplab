@@ -1,11 +1,7 @@
 import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
-from stapLabModule import stapLabModule
 from stream import Stream
-from queue import Queue
-from threading import Thread
-from time import sleep
 
 class outputHandler():
 

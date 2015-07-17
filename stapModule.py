@@ -41,16 +41,16 @@ class stapModule():
 						]
 			cmd 			+= self.args
 			cmd 			+= ['-x', str(self.target)]				# stap target PID
-			#self.log("dispatch command: %s" % cmd)
+			self.log("dispatch command: %s" % cmd)
 			self.handle		 = subprocess.Popen(
 							cmd,
 							stdout=subprocess.PIPE,
 							stderr=subprocess.STDOUT,	# pipe errors to stdout
 							universal_newlines=True
 						)
-			#self.log("handle: %s" % str(self.handle))
+			self.log("handle: %s" % str(self.handle))
 
 		def stop(self):
-			#self.log("stopping %s" % self)
+			self.log("stopping %s" % self)
 			self.handle.terminate()	#TODO check if really terminated
 			self.thread.running	= False

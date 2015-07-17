@@ -4,7 +4,6 @@ for folder in ["gather", "stapLabModules"]:
 from threading import Thread
 from queue import Queue
 from time import sleep
-from datetime import datetime
 
 # this is the base module for the stapLab Modules that plot stuff. (i.e. all at the moment)
 # all one needs to do is override the functions like 

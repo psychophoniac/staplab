@@ -1,7 +1,6 @@
 import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
-from stapLabModule import stapLabModule
 from queue import Queue
 from threading import Thread
 from time import sleep
@@ -33,7 +32,7 @@ class Stream():
 					stapLabModuleInstance.queue	= self.queue
 					self.log("registered %s to %s" % (str(stapLabModuleInstance), self.name))
 				else:
-					self.log("%s already in receivers of Stream %s" % (stapModuleInstance.name, self))
+					self.log("%s already in receivers of Stream %s" % (stapLabModuleInstance.name, self))
 
 		def unregister(self,module):
 			if module is not None:

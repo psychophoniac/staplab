@@ -2,10 +2,7 @@ import sys
 for folder in ["gather", "stapLabModules"]:
 	sys.path.append(folder)
 from stapLabModulePlot import stapLabModulePlot
-from threading import Thread,Lock
-from queue import Queue
-from time import sleep
-from datetime import datetime
+from threading import Lock
 import numpy as np
 
 class stapLabModuleFileIOStats(stapLabModulePlot):
@@ -24,7 +21,6 @@ class stapLabModuleFileIOStats(stapLabModulePlot):
 		self.subplot			= None
 		self.rects			= (None,None)					# ([rectsRead],[rectsWrite])
 		self.lock			= Lock()
-		#self.plotUpd			= False
 
 	def plot(self,figure):
 		self.lock.acquire()
@@ -32,8 +28,6 @@ class stapLabModuleFileIOStats(stapLabModulePlot):
 			self.subplot	= figure.add_subplot(111, frame_on=True, title="File I/O Stats", xlabel="file", ylabel="kilobytes")
 		if len(self.stats) > 0:
 			try:
-				#if self.plotUpd:	# if this is set, we had either a open/close or read/write operation
-					#self.log(self.stats)
 				indices		= sorted(list(self.stats))			# filenames, sorted
 				valuesRead	= [ self.stats[idx]['read'] / self.scale for idx in indices ]	# bytes read / scale, sorted now
 				valuesWrite	= [ self.stats[idx]['write'] / self.scale for idx in indices ]	# bytes written / scale, sorted now
@@ -69,24 +63,23 @@ class stapLabModuleFileIOStats(stapLabModulePlot):
 	def processData(self,data):
 		self.lock.acquire()
 		# pattern:
-		# action file:<name> [bytes:N|fd:N]?
+		# action file:<name> [bytesProcessed:N|fd:N]?
 		action, filename, *tail		= data.split()
 		filename	= filename.split(":")[1]
 		if action == 'close':
 			if filename in self.stats:
 				del self.stats[filename]
 		elif action in ['read','write']:
-			bytes	= int(tail[0].split(":")[1])
-			if filename not in self.stats:					# TODO: this is redundancy at the moment
+			bytesProcessed	= int(tail[0].split(":")[1])
+			if filename not in self.stats:							# TODO: this is redundancy at the moment
 				self.stats[filename]	= {'read':0, 'write':0}		# there are some fopen calls fileio.stp does not catch a.t.m.
-			self.stats[filename][action]	+= bytes
+			self.stats[filename][action]	+= bytesProcessed
 		elif action == 'open':
 			if not filename in self.stats:
 				self.stats[filename]	= {'read':0, 'write':0}
 		else:
 			self.log("unknown file operation %s on %s" % (action,filename))
 			return
-		#self.plotUpd	= True
 		self.lock.release()
 	
 	def onStop(self):
