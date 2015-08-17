@@ -1,26 +1,39 @@
 #! /usr/bin/env stap
+# this script does not track exec-calls on purpose, since it invokes a subprocess in a different manner than real forking
+
+global trackChildren = 1
+global targets
+
+function addTarget(new_tid:long){
+	if( trackChildren &&  new_tid > 0)
+		targets[new_tid] = new_tid
+}
+
+probe begin {
+	addTarget(target())
+}
+
+probe end {
+	delete targets
+}
 
 function isTarget() {
-	return pid() == target()
+	foreach( t in targets)
+		if(pid() == t)
+			return 1
+	return 0
 }
 
 probe kprocess.create {
 	if( isTarget() ) {
-		printf("%s(%d) %s create %d\n",
-			execname(), pid(), ppfunc(), new_pid)
+		//printf("create %d\n", new_pid)
+		addTarget(new_pid)
 	}
 }
 
-probe kprocess.exec {
-	if( isTarget() ) {
-		printf("%s(%d) exec %s\n",
-			execname(), pid(), filename)
-	}
-}
-
-probe kprocess.* {
-	if (isTarget()){
-		printf("%s(%d) func:%s\n",
-			execname(), pid(), ppfunc())
+probe nd_syscall.fork.return {
+	if( isTarget() ){
+		//printf("fork %s\n", retstr)
+		addTarget(strtol(retstr,10))
 	}
 }

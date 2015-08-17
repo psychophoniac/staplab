@@ -3,7 +3,7 @@ from threading import Thread
 from time import sleep
 
 class stapModule():
-		def __init__(self,name,script,target,args,queue,logStream=print):	# TODO: follow children
+		def __init__(self,name,script,target,args,queue,followChildren = True,logStream=print):
 			self.id			= id(self)
 			self.log		= logStream
 			self.name		= name
@@ -12,6 +12,7 @@ class stapModule():
 			self.script		= script
 			self.target		= target
 			self.args		= args
+			self.followChildren	= followChildren
 			self.thread		= Thread(target=self.outputWorkerMain)
 			self.thread.daemon	= True
 			self.thread.running	= True
@@ -39,6 +40,10 @@ class stapModule():
 							'-DMAXSTRINGLEN=16384',			# max String length
 							self.script					# stap script for module
 						]
+			if self.followChildren:
+				cmd		+= '-DtrackChildren=1'
+			else:
+				cmd		+= '-DtrackChildren=0'
 			cmd 			+= self.args
 			cmd 			+= ['-x', str(self.target)]				# stap target PID
 			self.log("dispatch command: %s" % cmd)

@@ -4,8 +4,6 @@ from time import sleep
 from queue import Queue
 import subprocess
 
-# this module requires "ss" to be installed
-
 class connectionStatsGeneratorModule(dataGeneratorModule):
 	def __init__(self,name,queue=None,args={}):	# TODO: follow children
 		self.args		= args

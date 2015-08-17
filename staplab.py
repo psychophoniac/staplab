@@ -20,6 +20,7 @@ class stapLab():
 											'target-pid' 	: self.options['target-pid'],	
 											'logStream'	: self.log,
 											'hardFail'	: True
+											'followChildren': self.options['follow-children']
 										}
 						)
 		self.timers		= []

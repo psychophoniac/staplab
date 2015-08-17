@@ -1,6 +1,41 @@
-function isTarget(tid){
-	return pid() == target()
+#! /usr/bin/env stap
+
+// BEGIN forktracking
+global trackChildren = 1
+global targets
+
+function addTarget(new_tid:long){
+	if( trackChildren &&  new_tid > 0)
+		targets[new_tid] = new_tid
 }
+
+probe begin {
+	addTarget(target())
+}
+
+probe end {
+	delete targets
+}
+
+function isTarget() {
+	foreach( t in targets)
+		if(pid() == t)
+			return 1
+	return 0
+}
+
+probe kprocess.create {
+	if( isTarget() ) {
+		addTarget(new_pid)
+	}
+}
+
+probe nd_syscall.fork.return {
+	if( isTarget() ){
+		addTarget(strtol(retstr,10))
+	}
+}
+// END forktracking
 
 function log(proto,func,sa,sp,da,dp,sz){
 	if ( isTarget(pid()) ){
