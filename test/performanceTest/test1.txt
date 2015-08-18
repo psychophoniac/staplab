@@ -1,0 +1,9 @@
+23.06.2015:
+	erster fixer Test zur Performance:
+	stapLab läuft, gui zeichnet syscalls ins Fenster.
+
+	Midori erziehlt auf peacekeeper.futuremark.com
+		3963 Punkte mit stabLab
+		3881 Punkte ohne stapLab
+	Die durch stapLab erzeugte Differenz scheint sich also im unmessbaren Bereich zu befinden.
+	Beim normalen browsen steigt die Systemlast nicht signifikant an (Systemlastanzeige).
