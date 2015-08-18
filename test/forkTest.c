@@ -1,3 +1,12 @@
+### Author: Fritz Schaal
+### This file simply creates a few forks and tells you wether it is the main programm or a forked one.
+### It is used to check the gather/forktracker.stp script.
+### compile with 
+###	g++ forkTest.c -o forkTest
+### check stapscript with 
+###	stap gather/forktracker.stp -c test/forkTest
+### next to the outputs of the programm the script is supposed to give some information about the target forking itself.
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
