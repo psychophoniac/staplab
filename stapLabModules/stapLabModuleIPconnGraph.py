@@ -7,7 +7,6 @@ from stapLabModulePlot import stapLabModulePlot
 import networkx as nx
 import random as rand
 
-#this is the base module for the stapLab Modules
 class stapLabModuleIPconnGraph(stapLabModulePlot):
 	def __init__(self,name,queue=None,args = {}):
 		super(stapLabModuleIPconnGraph,self).__init__(None,queue,args=args)
