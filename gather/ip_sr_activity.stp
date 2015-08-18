@@ -38,7 +38,7 @@ probe nd_syscall.fork.return {
 // END forktracking
 
 function log(proto,func,sa,sp,da,dp,sz){
-	if ( isTarget(pid()) ){
+	if ( isTarget() ){
 		printf("%s.%s source:%s:%d dest:%s:%d size:%d\n",
 			proto,
 			func,

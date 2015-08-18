@@ -15,12 +15,13 @@ class stapLab():
 		self.options		= self.parseargs()
 		if self.options['verbose']:
 			self.log	= print
+		self.log(self.options)
 		self.dispatcher		= Dispatcher(	registerCallbackFunc	= self.registerGUIcallback,
 							args			= {
 											'target-pid' 	: self.options['target-pid'],	
 											'logStream'	: self.log,
-											'hardFail'	: True
-											'followChildren': self.options['follow-children']
+											'hardFail'	: True,
+											'followChildren': self.options['follow_children']
 										}
 						)
 		self.timers		= []
@@ -48,7 +49,6 @@ class stapLab():
 					help='be verbose about what is going on internally')
 
 		args = vars(parser.parse_args())
-		self.log(args)
 		return args
 
 	def registerGUIcallback(self,func,timerInterval=20):
@@ -67,7 +67,11 @@ class stapLab():
 		self.timers	+= [timer]
 
 	def start(self):
-		self.dispatcher.dispatchStapLabModuleAll(modules=self.options['modules'], target=self.options['target-pid'])
+		try:
+			self.dispatcher.dispatchStapLabModuleAll(modules=self.options['modules'], target=self.options['target-pid'])
+		except ImportError as err:
+			self.log("error while loading a module: %s" % str(err))
+			raise
 		self.log("entering stapLab mainLoop")
 		
 		# wait for dispatcher to launch at least one module

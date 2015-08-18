@@ -41,9 +41,9 @@ class stapModule():
 							self.script					# stap script for module
 						]
 			if self.followChildren:
-				cmd		+= '-DtrackChildren=1'
+				cmd		+= ['-DtrackChildren=1']
 			else:
-				cmd		+= '-DtrackChildren=0'
+				cmd		+= ['-DtrackChildren=0']
 			cmd 			+= self.args
 			cmd 			+= ['-x', str(self.target)]				# stap target PID
 			self.log("dispatch command: %s" % cmd)
