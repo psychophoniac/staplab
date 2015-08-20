@@ -3,7 +3,7 @@ from threading import Thread
 from time import sleep
 
 class stapModule():
-		def __init__(self,name,script,target,args,queue,followChildren = True,logStream=print):
+		def __init__(self,name,script,target,args,queue,followChildren = True,logStream=None):
 			self.id			= id(self)
 			self.log		= logStream
 			self.name		= name

@@ -96,7 +96,8 @@ class Dispatcher():
 							filename,
 							target,
 							args=args,
-							queue=None
+							queue=None,
+							logStream = self.args['logStream']
 					)
 		if stapModuleInstance is not None:
 			self.outputHandler.registerStapModule(stapModuleInstance)

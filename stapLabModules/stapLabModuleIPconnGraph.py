@@ -18,8 +18,9 @@ class stapLabModuleIPconnGraph(stapLabModulePlot):
 		self.callbackRequirements	= [ (self.plot,1000) ]
 		self.refRequirements		= []
 		self.blackListIP		= {"source":[],"dest":[]}	# IP's to ignore {'in':["ip"],'out':["ip"]}
-		self.stats			= {}	# ip:port
-		self.graph 			= nx.MultiDiGraph()
+		self.stats			= {}	# {ip:{port:(send,recv)}}
+		self.statNodes			= {}	# {node:(send,recv)}
+		self.graph 			= nx.Graph()
 		self.graph.add_node("127.0.0.1")
 		self.thread			= Thread(target=self.run)
 		self.thread.daemon		= True
@@ -27,21 +28,66 @@ class stapLabModuleIPconnGraph(stapLabModulePlot):
 		self.lock			= Lock()
 		self.thread.start()
 		
-	def plot(self,figure):
-		figure.clf()
+	def plot(self,figure):		
+		changed	= False
 		for ip in self.stats:
 			if ip is not "127.0.0.1" and not self.graph.has_node(ip):
-				self.graph.add_node(ip)
-				self.graph.add_edge(ip,"127.0.0.1")
+				self.graph.add_node(ip,node_size=4000,node_shape="s")
+				self.graph.add_edge(ip,"127.0.0.1",attr_dict={"label":"N/A"})
+				changed = True
 			for port in self.stats[ip]:
-				pnode = ip + ":" + port
+				#pnode = ip + ":" + port
+				pnode = port
 				if not self.graph.has_node(pnode):
-					self.graph.add_node(pnode)
-					self.graph.add_edge(pnode ,ip)
-		pos = nx.spring_layout(self.graph,weight=None)
-		nx.draw(self.graph, with_labels = True)
-		#nx.draw_networkx_labels(self.stats.values(), pos, self.stats)
-		figure.canvas.draw()
+					statName = ip + ":" + port
+					self.graph.add_node(pnode,attr_dict={"node_size":700,"node_shape":"o","font_size":8})
+					self.graph.add_edge(pnode ,ip, attr_dict={"label":"N/A"})
+					changed = True
+		if changed:
+			figure.clf()
+			pos = nx.spring_layout(self.graph, weight=None, iterations=100, scale = 2)
+			#draw ip nodes
+			ipNodeList = list(self.stats)
+			#print(ipNodeList)
+			try:
+				nx.draw_networkx(self.graph, 
+							nodelist = ipNodeList, 
+							pos = pos, 
+							with_labels = True,
+							node_size = 4000 , 
+							node_shape = "p", 
+							font_size = 8
+						)
+			except nx.exception.NetworkXError:	# catch some error about a node not having a position yet (we just re-render, that does it)
+				pass
+			#draw port nodes
+			portList = list(self.stats.values())
+			portNodesList = [ item for sublist in (list(e) for e in portList) for item in sublist ]
+			try:
+				nx.draw_networkx_nodes(self.graph, 
+							nodelist = portNodesList, 
+							pos = pos ,
+							with_labels = True,
+							node_size = 700 , 
+							node_shape = "o", 
+							font_size=8
+						)
+				edges = self.graph.edges(data=True)
+				labels = {}
+				for (a, b, *c) in edges:
+					stats = "N/A"
+					if a in self.stats:
+						if b in self.stats[a]:
+							labels[a,b] = self.stats[a][b]
+					else:
+						if a in self.stats[b]:
+							labels[b,a] = self.stats[b][a]
+				nx.draw_networkx_edge_labels(self.graph, pos = pos, edge_labels=labels,ax=None)
+			except nx.exception.NetworkXError:	# catch some error about a node not having a position yet (we just re-render, that does it)
+				pass
+			# draw connStats
+			statNodesList = list(self.statNodes)
+			figure.canvas.draw()
 
 	def processData(self,data):
 		self.lock.acquire()
@@ -56,9 +102,10 @@ class stapLabModuleIPconnGraph(stapLabModulePlot):
 		sip, sport		= source.split(":")[1:]
 		# match dest like above
 		dip, dport		= dest.split(":")[1:]
+		self.log("source= %s, dest= %s" %(sip+":"+sport, dip+":"+dport))
 		if sip not in self.blackListIP['source'] and dip not in self.blackListIP['dest']:
 			port	= sport if func == 'send' else dport
-			IP	= sip	if func == 'send' else dip
+			IP	= dip	if func == 'send' else sip
 			if IP not in self.stats:
 				self.stats[IP] 	= {}
 			if port not in self.stats[IP]:
